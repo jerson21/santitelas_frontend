@@ -1,0 +1,259 @@
+/* src/styles/cajero.css - Estilos para el Dashboard de Cajero */
+
+/* Estilos base para inputs */
+.input-field {
+  @apply px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors;
+}
+
+.input-field:disabled {
+  @apply bg-gray-100 cursor-not-allowed;
+}
+
+/* Botones primarios */
+.btn-primary {
+  @apply bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors;
+}
+
+.btn-primary:disabled {
+  @apply bg-gray-300 cursor-not-allowed;
+}
+
+/* Botones secundarios */
+.btn-secondary {
+  @apply bg-gray-200 text-gray-900 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors;
+}
+
+/* Botones de éxito */
+.btn-success {
+  @apply bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors;
+}
+
+/* Botones de peligro */
+.btn-danger {
+  @apply bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors;
+}
+
+/* Cards */
+.card {
+  @apply bg-white rounded-lg shadow border border-gray-200;
+}
+
+.card-header {
+  @apply px-6 py-4 border-b border-gray-200;
+}
+
+.card-body {
+  @apply p-6;
+}
+
+/* Alertas */
+.alert {
+  @apply p-4 rounded-lg border;
+}
+
+.alert-success {
+  @apply bg-green-50 border-green-200 text-green-800;
+}
+
+.alert-warning {
+  @apply bg-yellow-50 border-yellow-200 text-yellow-800;
+}
+
+.alert-error {
+  @apply bg-red-50 border-red-200 text-red-800;
+}
+
+.alert-info {
+  @apply bg-blue-50 border-blue-200 text-blue-800;
+}
+
+/* Estados de vale */
+.vale-estado {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.vale-estado-pendiente {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.vale-estado-procesando {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.vale-estado-completado {
+  @apply bg-green-100 text-green-800;
+}
+
+.vale-estado-cancelado {
+  @apply bg-red-100 text-red-800;
+}
+
+/* Animaciones */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-in-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Loading spinner personalizado */
+.spinner {
+  @apply inline-block w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin;
+}
+
+/* Estilos para el modal */
+.modal-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+}
+
+.modal-content {
+  @apply bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto;
+}
+
+.modal-header {
+  @apply flex justify-between items-center p-6 border-b border-gray-200;
+}
+
+.modal-body {
+  @apply p-6;
+}
+
+.modal-footer {
+  @apply flex justify-end space-x-3 p-6 border-t border-gray-200;
+}
+
+/* Tabla de productos */
+.productos-table {
+  @apply w-full;
+}
+
+.productos-table th {
+  @apply px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200;
+}
+
+.productos-table td {
+  @apply px-4 py-2 text-sm text-gray-900 border-b border-gray-100;
+}
+
+.productos-table tr:hover {
+  @apply bg-gray-50;
+}
+
+/* Estadísticas */
+.stat-card {
+  @apply bg-white rounded-lg shadow p-6;
+}
+
+.stat-value {
+  @apply text-2xl font-bold text-gray-900;
+}
+
+.stat-label {
+  @apply text-sm font-medium text-gray-500;
+}
+
+.stat-change {
+  @apply text-sm font-medium;
+}
+
+.stat-change.positive {
+  @apply text-green-600;
+}
+
+.stat-change.negative {
+  @apply text-red-600;
+}
+
+.stat-change.neutral {
+  @apply text-gray-600;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .modal-content {
+    @apply mx-2 max-h-[95vh];
+  }
+  
+  .grid-cols-responsive {
+    @apply grid-cols-1;
+  }
+  
+  .btn-responsive {
+    @apply w-full mb-2;
+  }
+}
+
+/* Focus states mejorados */
+.input-field:focus {
+  @apply ring-2 ring-blue-500 border-blue-500;
+}
+
+button:focus-visible {
+  @apply outline-none ring-2 ring-offset-2;
+}
+
+.btn-primary:focus-visible {
+  @apply ring-blue-500;
+}
+
+.btn-success:focus-visible {
+  @apply ring-green-500;
+}
+
+.btn-danger:focus-visible {
+  @apply ring-red-500;
+}
+
+/* Utilidades adicionales */
+.text-currency {
+  @apply font-mono font-semibold;
+}
+
+.bg-pattern {
+  background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .card {
+    @apply shadow-none border border-gray-300;
+  }
+  
+  .modal-overlay {
+    position: static !important;
+    background: white !important;
+  }
+  
+  .modal-content {
+    box-shadow: none !important;
+    max-height: none !important;
+  }
+}
