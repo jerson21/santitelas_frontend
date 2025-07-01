@@ -21,7 +21,8 @@ import ApiService from '../../services/api';
 import UsuariosAdmin from './UsuariosAdmin';
 import ProductosAdmin from './ProductosAdmin';
 import TransferValidationNotifications from './TransferValidationNotifications';
-import CategoriasAdmin from './categorias'; // ← AGREGAR ESTA LÍNEA
+import CategoriasAdmin from './categorias';
+import BodegasAdmin from './BodegasAdmin';
 
 
 const AdminDashboard = () => {
@@ -71,8 +72,7 @@ const AdminDashboard = () => {
       endpoint: '/admin/categorias',
       actions: ['view', 'create', 'edit'],
       comingSoon: false,
-      component: CategoriasAdmin  // ← AGREGAR ESTA LÍNEA
-
+      component: CategoriasAdmin
     },
     {
       id: 'bodegas',
@@ -82,7 +82,8 @@ const AdminDashboard = () => {
       color: 'bg-purple-600 hover:bg-purple-700',
       endpoint: '/bodegas',
       actions: ['view', 'create', 'edit'],
-      comingSoon: false
+      comingSoon: false,
+      component: BodegasAdmin
     },
     {
       id: 'stock',
@@ -350,7 +351,7 @@ const AdminDashboard = () => {
   );
 
   const StatCard = ({ title, value, loading, icon: Icon, color, subtext }) => (
-    <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
       <div className="flex items-center justify-between">
         <div>
           <h4 className="text-sm font-medium text-gray-600 mb-1">{title}</h4>
