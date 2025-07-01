@@ -21,6 +21,7 @@ import ApiService from '../../services/api';
 import UsuariosAdmin from './UsuariosAdmin';
 import ProductosAdmin from './ProductosAdmin';
 import TransferValidationNotifications from './TransferValidationNotifications';
+import CategoriasAdmin from './categorias'; // ← AGREGAR ESTA LÍNEA
 
 
 const AdminDashboard = () => {
@@ -67,9 +68,11 @@ const AdminDashboard = () => {
       description: 'Organizar productos por categorías',
       icon: FileText,
       color: 'bg-indigo-600 hover:bg-indigo-700',
-      endpoint: '/categorias',
+      endpoint: '/admin/categorias',
       actions: ['view', 'create', 'edit'],
-      comingSoon: false
+      comingSoon: false,
+      component: CategoriasAdmin  // ← AGREGAR ESTA LÍNEA
+
     },
     {
       id: 'bodegas',
@@ -376,6 +379,8 @@ const AdminDashboard = () => {
       const Component = module.component;
       return <Component />;
     }
+
+    
 
     // Renderizado genérico para módulos sin componente personalizado
     return (
