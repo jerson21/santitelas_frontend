@@ -1,8 +1,13 @@
-// src/components/admin/productos/StockModals.jsx
+// src/components/admin/productos/StockModals.tsx
 import React, { useState, useEffect } from 'react';
 import { Archive, Check, AlertTriangle, ChevronDown } from 'lucide-react';
+import {
+  StockConfirmationModalProps,
+  StockMassiveModalProps,
+  ConfirmationModalProps
+} from '../../../types/productos'; // ✅ Correcto
 
-export const StockConfirmationModal = ({ 
+export const StockConfirmationModal: React.FC<StockConfirmationModalProps> = ({ 
   isOpen, 
   oldStock, 
   newStock, 
@@ -98,10 +103,15 @@ export const StockConfirmationModal = ({
   );
 };
 
-export const StockMassiveModal = ({ isOpen, onClose, onSave, selectedProducts }) => {
-  const [operation, setOperation] = useState('set');
-  const [amount, setAmount] = useState('');
-  const [reason, setReason] = useState('');
+export const StockMassiveModal: React.FC<StockMassiveModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  selectedProducts 
+}) => {
+  const [operation, setOperation] = useState<string>('set');
+  const [amount, setAmount] = useState<string>('');
+  const [reason, setReason] = useState<string>('');
 
   if (!isOpen) return null;
 
@@ -196,17 +206,17 @@ export const StockMassiveModal = ({ isOpen, onClose, onSave, selectedProducts })
   );
 };
 
-export const ConfirmationModal = ({ 
+export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ 
   isOpen, 
-  title, 
-  message, 
+  title = 'Confirmación', 
+  message = '', 
   onConfirm, 
   onCancel, 
   confirmText = 'Confirmar', 
   cancelText = 'Cancelar', 
-  variantDetails 
+  variantDetails = []
 }) => {
-  const [detailsVisible, setDetailsVisible] = useState(false);
+  const [detailsVisible, setDetailsVisible] = useState<boolean>(false);
   
   useEffect(() => { 
     if (isOpen) setDetailsVisible(false); 
@@ -225,7 +235,7 @@ export const ConfirmationModal = ({
             <div className="ml-4 text-left w-full"> 
               <h3 className="text-lg font-semibold text-slate-800">{title}</h3> 
               <p className="text-sm text-slate-600 mt-1" dangerouslySetInnerHTML={{ __html: message }}></p> 
-              {variantDetails?.length > 0 && (
+              {variantDetails && variantDetails.length > 0 && (
                 <div className="mt-3 text-sm"> 
                   <button 
                     onClick={() => setDetailsVisible(!detailsVisible)} 

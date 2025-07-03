@@ -1,10 +1,24 @@
+// src/components/admin/ProductoFormModal.tsx
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Save, Loader2, Package, Tag, Palette, Ruler, Box, Info, Calculator, Percent } from 'lucide-react';
-import ApiService from '../../services/api'; // ⭐ IMPORT AGREGADO
+import ApiService from '../../services/api';
+import { 
+  ProductoFormModalProps, 
+  ProductoFormData, 
+  Modalidad,
+  Variante,
+  PreciosBase
+} from '../../types/productos'; // ✅ Correcto
 
-const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categorias = [] }) => {
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+const ProductoFormModal: React.FC<ProductoFormModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  producto = null, 
+  categorias = [] 
+}) => {
+  const [loading, setLoading] = useState<boolean>(false);
+  const [formData, setFormData] = useState<ProductoFormData>({
     categoria: '',
     tipo: '',
     modelo: '',
@@ -89,13 +103,13 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
   }, [formData.unidad_medida]);
 
   // Calcular precio con descuento automáticamente
-  const calcularPrecioConDescuento = (precioBase, descuento) => {
+  const calcularPrecioConDescuento = (precioBase: number, descuento: number): number => {
     if (!precioBase || !descuento) return precioBase || 0;
     return Math.round(precioBase * (1 - descuento / 100));
   };
 
   // Actualizar precio modalidad 1 desde neto
-  const updatePrecioModalidad1Neto = (precio_neto) => {
+  const updatePrecioModalidad1Neto = (precio_neto: number): void => {
     const precio_factura = Math.round(precio_neto * 1.19);
     
     setFormData(prev => {
@@ -122,7 +136,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
   };
 
   // Actualizar precio modalidad 1 desde factura
-  const updatePrecioModalidad1Factura = (precio_factura) => {
+  const updatePrecioModalidad1Factura = (precio_factura: number): void => {
     const precio_neto = Math.round(precio_factura / 1.19);
     
     setFormData(prev => {
@@ -149,7 +163,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
   };
 
   // Actualizar descuento modalidad 2
-  const updateDescuentoModalidad2 = (descuento) => {
+  const updateDescuentoModalidad2 = (descuento: number): void => {
     setFormData(prev => {
       const precio_base = prev.preciosBase.modalidad1.precio_neto;
       const precio_neto_m2 = calcularPrecioConDescuento(precio_base, descuento);
@@ -171,7 +185,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
   };
 
   // Actualizar cantidad variable en precios base
-  const updateCantidadVariableBase = (modalidad, value) => {
+  const updateCantidadVariableBase = (modalidad: 'modalidad1' | 'modalidad2', value: boolean): void => {
     setFormData(prev => ({
       ...prev,
       preciosBase: {
@@ -184,7 +198,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
     }));
   };
 
-  // ⭐ CARGA DE DATOS DEL PRODUCTO PARA EDICIÓN
+  // Carga de datos del producto para edición
   useEffect(() => {
     if (producto) {
       console.log('📦 Cargando producto para editar:', producto);
@@ -192,17 +206,17 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
       const cargarDatosProducto = () => {
         try {
           // Convertir variantes existentes al formato del formulario
-          const variantesFormateadas = (producto.opciones || []).map(variante => ({
-            id: variante.id_variante || `temp_${Date.now()}_${Math.random()}`,
-            esExistente: true, // ⭐ Marcar como existente
-            color: variante.color || '',
-            medida: variante.medida || '',
-            material: variante.material || '',
+          const variantesFormateadas: Variante[] = (producto.opciones || []).map(variante => ({
+            id: variante.id_variante?.toString() || `temp_${Date.now()}_${Math.random()}`,
+            esExistente: true,
+            color: (variante as any).color || '',
+            medida: (variante as any).medida || '',
+            material: (variante as any).material || '',
             descripcion: variante.descripcion_opcion || '',
-            stock_minimo: variante.stock_minimo || 0,
-            modalidades: (variante.modalidades || []).map(modalidad => ({
+            stock_minimo: (variante as any).stock_minimo || 0,
+            modalidades: ((variante as any).modalidades || []).map((modalidad: any) => ({
               id: modalidad.id_modalidad || `temp_${Date.now()}_${Math.random()}`,
-              esExistente: true, // ⭐ Marcar como existente
+              esExistente: true,
               nombre: modalidad.nombre || 'UNIDAD',
               descripcion: modalidad.descripcion || '',
               cantidad_base: parseFloat(modalidad.cantidad_base) || 1,
@@ -214,8 +228,8 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
             }))
           }));
 
-          // ⭐ EXTRAER PRECIOS BASE DE LAS VARIANTES EXISTENTES
-          let preciosBaseReales = {
+          // Extraer precios base de las variantes existentes
+          let preciosBaseReales: PreciosBase = {
             modalidad1: {
               nombre: 'UNIDAD',
               cantidad_base: 1,
@@ -276,8 +290,8 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
             descripcion: producto.descripcion || '',
             unidad_medida: producto.unidad_medida || 'unidad',
             stock_minimo_total: producto.stock_minimo_total || 0,
-            preciosBase: preciosBaseReales, // ⭐ Precios base reales
-            opciones: variantesFormateadas // ⭐ Variantes existentes cargadas
+            preciosBase: preciosBaseReales,
+            opciones: variantesFormateadas
           });
 
         } catch (error) {
@@ -352,9 +366,9 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
     }
   }, [producto, isOpen]);
 
-  const agregarVariante = () => {
+  const agregarVariante = (): void => {
     // Crear modalidades basadas en los precios base configurados
-    const modalidades = [
+    const modalidades: Modalidad[] = [
       {
         id: Date.now(),
         nombre: formData.preciosBase.modalidad1.nombre,
@@ -396,14 +410,14 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
     });
   };
 
-  const eliminarVariante = (varianteId) => {
+  const eliminarVariante = (varianteId: string | number): void => {
     setFormData({
       ...formData,
       opciones: formData.opciones.filter(v => v.id !== varianteId)
     });
   };
 
-  const updateVariante = (varianteId, field, value) => {
+  const updateVariante = (varianteId: string | number, field: keyof Variante, value: any): void => {
     setFormData({
       ...formData,
       opciones: formData.opciones.map(v => 
@@ -412,7 +426,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
     });
   };
 
-  const agregarModalidad = (varianteId) => {
+  const agregarModalidad = (varianteId: string | number): void => {
     setFormData({
       ...formData,
       opciones: formData.opciones.map(v => {
@@ -449,7 +463,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
     });
   };
 
-  const updateModalidad = (varianteId, modalidadId, field, value) => {
+  const updateModalidad = (varianteId: string | number, modalidadId: number, field: string, value: any): void => {
     setFormData({
       ...formData,
       opciones: formData.opciones.map(v => {
@@ -484,7 +498,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
     });
   };
 
-  const eliminarModalidad = (varianteId, modalidadId) => {
+  const eliminarModalidad = (varianteId: string | number, modalidadId: number): void => {
     setFormData({
       ...formData,
       opciones: formData.opciones.map(v => {
@@ -499,8 +513,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
     });
   };
 
-  // ⭐ HANDLE SUBMIT CORREGIDO
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     // Validaciones básicas
     if (!formData.categoria || !formData.modelo) {
       alert('Por favor complete los campos obligatorios: Categoría y Modelo');
@@ -533,15 +546,12 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
     
     try {
       if (producto) {
-        // ⭐ MODO EDICIÓN: Enviar todo en una sola llamada estructurada
+        // Modo edición: Enviar todo en una sola llamada estructurada
         const variantesNuevas = formData.opciones.filter(v => !v.esExistente);
         
         const datosCompletos = {
-          // Marcar como actualización de producto existente
           esActualizacionProducto: true,
           id_producto: producto.id_producto,
-          
-          // Datos básicos del producto para actualizar
           datosBasicos: {
             categoria: formData.categoria,
             tipo: formData.tipo,
@@ -551,20 +561,18 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
             unidad_medida: formData.unidad_medida,
             stock_minimo_total: formData.stock_minimo_total
           },
-          
-          // Variantes nuevas para agregar (si las hay)
           variantesNuevas: variantesNuevas
         };
         
         await onSave(datosCompletos);
       } else {
-        // Crear producto nuevo (sin cambios)
-        await onSave(formData);
+        // Crear producto nuevo
+        await onSave(formData as any);
       }
       onClose();
     } catch (error) {
       console.error('Error guardando producto:', error);
-      alert('Error al guardar el producto: ' + (error.message || 'Por favor intente nuevamente.'));
+      alert('Error al guardar el producto: ' + ((error as Error).message || 'Por favor intente nuevamente.'));
     } finally {
       setLoading(false);
     }
@@ -588,7 +596,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
         {/* Form Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-5 space-y-5">
-            {/* Información Básica - Más compacta */}
+            {/* Información Básica */}
             <div className="bg-gray-50 rounded-lg p-4">
               <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
                 <Package size={18} />
@@ -607,7 +615,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                   >
                     <option value="">Seleccionar categoría</option>
                     {categorias.map(cat => (
-                      <option key={cat.id_categoria} value={cat.nombre}>
+                      <option key={cat.id_categoria || cat.id} value={cat.nombre}>
                         {cat.nombre}
                       </option>
                     ))}
@@ -690,7 +698,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                     value={formData.descripcion}
                     onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
                     className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows="2"
+                    rows={2}
                     placeholder="Descripción del producto..."
                   />
                 </div>
@@ -929,7 +937,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                       </h4>
                       {!variante.esExistente && (
                         <button
-                          onClick={() => eliminarVariante(variante.id)}
+                          onClick={() => eliminarVariante(variante.id!)}
                           className="text-red-500 hover:text-red-700"
                         >
                           <Trash2 size={16} />
@@ -949,7 +957,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                             <input
                               type="text"
                               value={variante.color}
-                              onChange={(e) => updateVariante(variante.id, 'color', e.target.value)}
+                              onChange={(e) => updateVariante(variante.id!, 'color', e.target.value)}
                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                               placeholder="Ej: Azul"
                             />
@@ -963,7 +971,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                             <input
                               type="text"
                               value={variante.medida}
-                              onChange={(e) => updateVariante(variante.id, 'medida', e.target.value)}
+                              onChange={(e) => updateVariante(variante.id!, 'medida', e.target.value)}
                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                               placeholder="Ej: 71"
                             />
@@ -977,7 +985,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                             <input
                               type="text"
                               value={variante.material}
-                              onChange={(e) => updateVariante(variante.id, 'material', e.target.value)}
+                              onChange={(e) => updateVariante(variante.id!, 'material', e.target.value)}
                               className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                               placeholder="Ej: 100% Lino"
                             />
@@ -991,7 +999,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                               Modalidades de venta
                             </h5>
                             <button
-                              onClick={() => agregarModalidad(variante.id)}
+                              onClick={() => agregarModalidad(variante.id!)}
                               className="text-xs text-blue-600 hover:text-blue-700"
                             >
                               + Agregar modalidad
@@ -1007,7 +1015,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                                     <input
                                       type="text"
                                       value={modalidad.nombre}
-                                      onChange={(e) => updateModalidad(variante.id, modalidad.id, 'nombre', e.target.value)}
+                                      onChange={(e) => updateModalidad(variante.id!, modalidad.id!, 'nombre', e.target.value)}
                                       className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                       readOnly={modIndex < 2}
                                     />
@@ -1018,7 +1026,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                                     <input
                                       type="number"
                                       value={modalidad.cantidad_base}
-                                      onChange={(e) => updateModalidad(variante.id, modalidad.id, 'cantidad_base', parseFloat(e.target.value) || 1)}
+                                      onChange={(e) => updateModalidad(variante.id!, modalidad.id!, 'cantidad_base', parseFloat(e.target.value) || 1)}
                                       className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                       step="0.1"
                                       min="0"
@@ -1031,7 +1039,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                                     <input
                                       type="number"
                                       value={modalidad.precio_neto}
-                                      onChange={(e) => updateModalidad(variante.id, modalidad.id, 'precio_neto', parseFloat(e.target.value) || 0)}
+                                      onChange={(e) => updateModalidad(variante.id!, modalidad.id!, 'precio_neto', parseFloat(e.target.value) || 0)}
                                       className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                       min="0"
                                     />
@@ -1042,7 +1050,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                                     <input
                                       type="number"
                                       value={modalidad.precio_factura}
-                                      onChange={(e) => updateModalidad(variante.id, modalidad.id, 'precio_factura', parseFloat(e.target.value) || 0)}
+                                      onChange={(e) => updateModalidad(variante.id!, modalidad.id!, 'precio_factura', parseFloat(e.target.value) || 0)}
                                       className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded"
                                       min="0"
                                     />
@@ -1053,7 +1061,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                                       <input
                                         type="checkbox"
                                         checked={modalidad.es_cantidad_variable}
-                                        onChange={(e) => updateModalidad(variante.id, modalidad.id, 'es_cantidad_variable', e.target.checked)}
+                                        onChange={(e) => updateModalidad(variante.id!, modalidad.id!, 'es_cantidad_variable', e.target.checked)}
                                         className="rounded"
                                       />
                                       Variable
@@ -1063,7 +1071,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                                   <div className="flex items-center justify-end">
                                     {modIndex >= 2 && (
                                       <button
-                                        onClick={() => eliminarModalidad(variante.id, modalidad.id)}
+                                        onClick={() => eliminarModalidad(variante.id!, modalidad.id!)}
                                         className="text-red-500 hover:text-red-700 p-0.5"
                                       >
                                         <Trash2 size={14} />
@@ -1078,7 +1086,7 @@ const ProductoFormModal = ({ isOpen, onClose, onSave, producto = null, categoria
                                     <input
                                       type="number"
                                       value={modalidad.minimo_cantidad}
-                                      onChange={(e) => updateModalidad(variante.id, modalidad.id, 'minimo_cantidad', parseFloat(e.target.value) || 0)}
+                                      onChange={(e) => updateModalidad(variante.id!, modalidad.id!, 'minimo_cantidad', parseFloat(e.target.value) || 0)}
                                       className="w-16 px-1.5 py-0.5 text-xs border border-gray-300 rounded"
                                       step="0.1"
                                       min="0"

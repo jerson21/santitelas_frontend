@@ -1,4 +1,4 @@
-// src/components/admin/ProductosAdmin.jsx
+// src/components/admin/ProductosAdmin.tsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { debounce } from '../../utils/debounce';
 import ApiService from '../../services/api';
@@ -14,32 +14,94 @@ import ProductosPagination from './productos/ProductosPagination';
 import ProductoFormModal from './ProductoFormModal';
 import VarianteFormModal from './VarianteFormModal';
 import { StockConfirmationModal, StockMassiveModal, ConfirmationModal } from './productos/StockModals';
-import { ModernStockManager } from './ModernStockManager';
 
-const ProductosAdmin = () => {
+import { UnifiedStockManager } from './UnifiedStockManager';
+
+// Tipos importados desde productos.ts - ELIMINADAS DUPLICACIONES
+import { 
+  Producto, 
+  Variante, 
+  Modalidad, 
+  Categoria, 
+  DatosProducto,
+  ApiResponse
+} from '../../types/productos';
+
+interface Paginacion {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
+
+interface Filtros {
+  busqueda: string;
+  categoria: string;
+  tipo: string;
+  con_stock: boolean;
+  page: number;
+}
+
+interface EditingInfo {
+  productoId: number;
+  varianteId: number;
+  modalidadId: number;
+  field: string;
+}
+
+interface StockConfirmationState {
+  isOpen: boolean;
+  varianteId: number | null;
+  oldStock: number;
+  newStock: number;
+  motivo: string;
+  skipConfirmation: boolean;
+}
+
+interface ConfirmationState {
+  isOpen: boolean;
+  title?: string;
+  message?: string;
+  variantDetails?: string[];
+  onConfirm?: () => void;
+  onCancel?: () => void;
+  confirmText?: string;
+  cancelText?: string;
+}
+
+interface UpdateData {
+  operation: string;
+  amount: number;
+  reason: string;
+}
+
+type ProductosExpandidos = Record<number, boolean>;
+type VariantesExpandidas = Record<number, boolean>;
+
+const ProductosAdmin: React.FC = () => {
   // Estados principales
-  const [productos, setProductos] = useState([]);
-  const [categorias, setCategorias] = useState([]);
-  const [estructura, setEstructura] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [searching, setSearching] = useState(false);
-  const [paginacion, setPaginacion] = useState({ page: 1, limit: 20, total: 0, pages: 0 });
-  const [filtros, setFiltros] = useState({ busqueda: '', categoria: '', tipo: '', con_stock: false, page: 1 });
-  const [productosExpandidos, setProductosExpandidos] = useState({});
-  const [variantesExpandidas, setVariantesExpandidas] = useState({});
-  const [editingInfo, setEditingInfo] = useState(null);
-  const [confirmation, setConfirmation] = useState({ isOpen: false });
-  const [showFormModal, setShowFormModal] = useState(false);
-  const [showVarianteModal, setShowVarianteModal] = useState(false);
-  const [showStockMassiveModal, setShowStockMassiveModal] = useState(false);
-  const [productoEditar, setProductoEditar] = useState(null);
-  const [selectedVariants, setSelectedVariants] = useState(new Set());
-  const [showModernStockModal, setShowModernStockModal] = useState(false);
-  const [selectedVarianteIdForStock, setSelectedVarianteIdForStock] = useState(null);
-  const [searchValue, setSearchValue] = useState('');
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [estructura, setEstructura] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searching, setSearching] = useState<boolean>(false);
+  const [paginacion, setPaginacion] = useState<Paginacion>({ page: 1, limit: 20, total: 0, pages: 0 });
+  const [filtros, setFiltros] = useState<Filtros>({ busqueda: '', categoria: '', tipo: '', con_stock: false, page: 1 });
+  const [productosExpandidos, setProductosExpandidos] = useState<ProductosExpandidos>({});
+  const [variantesExpandidas, setVariantesExpandidas] = useState<VariantesExpandidas>({});
+  const [editingInfo, setEditingInfo] = useState<EditingInfo | null>(null);
+  const [confirmation, setConfirmation] = useState<ConfirmationState>({ isOpen: false });
+  const [showFormModal, setShowFormModal] = useState<boolean>(false);
+  const [showVarianteModal, setShowVarianteModal] = useState<boolean>(false);
+  const [showStockMassiveModal, setShowStockMassiveModal] = useState<boolean>(false);
+  const [productoEditar, setProductoEditar] = useState<Producto | undefined>(undefined); // CORREGIDO: undefined en lugar de null
+  const [selectedVariants, setSelectedVariants] = useState<Set<number>>(new Set());
+  const [showModernStockModal, setShowModernStockModal] = useState<boolean>(false);
+  const [selectedVarianteIdForStock, setSelectedVarianteIdForStock] = useState<number | null>(null);
+  const [searchValue, setSearchValue] = useState<string>('');
 
   // Estado para confirmación de stock
-  const [stockConfirmation, setStockConfirmation] = useState({
+  const [stockConfirmation, setStockConfirmation] = useState<StockConfirmationState>({
     isOpen: false,
     varianteId: null,
     oldStock: 0,
@@ -49,10 +111,10 @@ const ProductosAdmin = () => {
   });
 
   // Cargar datos
-  const cargarDatos = useCallback(async () => {
+  const cargarDatos = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
-      const filtrosAPI = {
+      const filtrosAPI: Record<string, any> = {
         categoria: filtros.categoria || undefined,
         tipo: filtros.tipo || undefined,
         con_stock: filtros.con_stock || undefined,
@@ -74,10 +136,10 @@ const ProductosAdmin = () => {
       ]);
   
       if (productosRes?.success) {
-        const productosNormalizados = (productosRes.data || []).map(producto => ({
+        const productosNormalizados = (productosRes.data || []).map((producto: any) => ({
           ...producto,
           modelo: producto.modelo || producto.nombre,
-          opciones: (producto.opciones || producto.variantes || []).map(variante => ({
+          opciones: (producto.opciones || producto.variantes || []).map((variante: any) => ({
             ...variante,
             stock_total: typeof variante.stock_total === 'string' 
               ? parseFloat(variante.stock_total) || 0 
@@ -101,32 +163,60 @@ const ProductosAdmin = () => {
   }, [filtros.categoria, filtros.tipo, filtros.con_stock, filtros.page, filtros.busqueda, estructura, categorias]);
 
   const debouncedSearch = useMemo(
-    () => debounce((searchTerm) => {
+    () => debounce((searchTerm: string) => {
       setFiltros(prev => ({ ...prev, busqueda: searchTerm, page: 1 }));
     }, 500),
     []
   );
 
-  const handleSearchChange = (value) => {
+  const handleUnifiedStockUpdate = async (
+    varianteId: number,
+    _bodegaId: number,
+    _nuevoStock: number
+  ): Promise<void> => {
+    try {
+      // 1) Pedimos SOLO la disponibilidad de esa variante
+      const r = await ApiService.getDisponibilidadVariante(varianteId);
+      if (!r.success) throw new Error(r.message);
+  
+      const totalDisponible = parseFloat(r.data.disponibilidad.total_disponible);
+  
+      // 2) Actualizamos el estado local sin refrescar todo
+      setProductos((current) =>
+        current.map((p) => ({
+          ...p,
+          opciones: (p.opciones || []).map((v) =>
+            v.id_variante === varianteId ? { ...v, stock_total: totalDisponible } : v
+          ),
+        }))
+      );
+    } catch (e) {
+      console.error('Error refrescando stock:', e);
+      // Opcional: mostrar un toast o alerta de error aquí
+    }
+    // La línea que cerraba el modal ha sido eliminada para permitir operaciones múltiples.
+  };
+
+  const handleSearchChange = (value: string): void => {
     setSearchValue(value);
     setSearching(true);
     debouncedSearch(value);
   };
 
-  const handleClearSearch = () => {
+  const handleClearSearch = (): void => {
     setSearchValue('');
     setSearching(false);
     setFiltros(prev => ({ ...prev, busqueda: '', page: 1 }));
   };
 
   // Handle Stock Update
-  const handleStockUpdate = async (varianteId, nuevoStock) => {
+  const handleStockUpdate = async (varianteId: number, nuevoStock: string | number): Promise<void> => {
     try {
       console.log('📦 Iniciando actualización de stock para variante:', varianteId, 'Nuevo stock:', nuevoStock);
       
-      const stockNumerico = parseFloat(nuevoStock) || 0;
-      const variante = productos.flatMap(p => p.opciones).find(v => v.id_variante === varianteId);
-      const stockActual = parseFloat(variante?.stock_total) || 0;
+      const stockNumerico = parseFloat(String(nuevoStock)) || 0;
+      const variante = (productos || []).flatMap(p => (p.opciones || [])).find(v => v.id_variante === varianteId);
+      const stockActual = parseFloat(String(variante?.stock_total)) || 0;
       
       if (!stockConfirmation.skipConfirmation && Math.abs(stockNumerico - stockActual) > 0) {
         setStockConfirmation({
@@ -141,14 +231,14 @@ const ProductosAdmin = () => {
       }
       
       await ejecutarActualizacionStock(varianteId, stockNumerico, '');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error actualizando stock:', error);
       alert('Error al actualizar stock: ' + (error.message || 'Error desconocido'));
       await cargarDatos();
     }
   };
   
-  const ejecutarActualizacionStock = async (varianteId, nuevoStock, motivo = '') => {
+  const ejecutarActualizacionStock = async (varianteId: number, nuevoStock: number, motivo: string = ''): Promise<ApiResponse> => {
     try {
       const response = await ApiService.updateVarianteStock(
         varianteId,
@@ -162,7 +252,7 @@ const ProductosAdmin = () => {
         
         setProductos(current => current.map(producto => ({
           ...producto,
-          opciones: producto.opciones.map(variante =>
+          opciones: (producto.opciones || []).map(variante =>
             variante.id_variante === varianteId
               ? { ...variante, stock_total: nuevoStock }
               : variante
@@ -179,54 +269,56 @@ const ProductosAdmin = () => {
     }
   };
   
-  const handleStockConfirmationConfirm = async (motivo) => {
+  const handleStockConfirmationConfirm = async (motivo: string): Promise<void> => {
     const { varianteId, newStock } = stockConfirmation;
     setStockConfirmation(prev => ({ ...prev, isOpen: false }));
     
+    if (varianteId === null) return;
+    
     try {
       await ejecutarActualizacionStock(varianteId, newStock, motivo);
-    } catch (error) {
+    } catch (error: any) {
       alert('Error al actualizar stock: ' + (error.message || 'Error desconocido'));
       await cargarDatos();
     }
   };
   
-  const handleStockConfirmationCancel = () => {
+  const handleStockConfirmationCancel = (): void => {
     setStockConfirmation(prev => ({ ...prev, isOpen: false, motivo: '' }));
     cargarDatos();
   };
 
   // Toggles
-  const toggleProducto = (id) => setProductosExpandidos(p => ({ ...p, [id]: !p[id] }));
-  const toggleVariante = (id) => setVariantesExpandidas(p => ({ ...p, [id]: !p[id] }));
-  const closeConfirmation = () => { setConfirmation({ isOpen: false }); setEditingInfo(null); };
+  const toggleProducto = (id: number): void => setProductosExpandidos(p => ({ ...p, [id]: !p[id] }));
+  const toggleVariante = (id: number): void => setVariantesExpandidas(p => ({ ...p, [id]: !p[id] }));
+  const closeConfirmation = (): void => { setConfirmation({ isOpen: false }); setEditingInfo(null); };
 
   // Handlers de producto
-  const handleNuevoProducto = () => {
-    setProductoEditar(null);
+  const handleNuevoProducto = (): void => {
+    setProductoEditar(undefined); // CORREGIDO: undefined en lugar de null
     setShowFormModal(true);
   };
 
-  const handleEditarProducto = (producto) => {
+  const handleEditarProducto = (producto: Producto): void => {
     setProductoEditar(producto);
     setShowFormModal(true);
   };
 
-  const handleGuardarProducto = async (datosProducto) => {
+  const handleGuardarProducto = async (datosProducto: DatosProducto): Promise<void> => {
     try {
       console.log('💾 Guardando producto:', datosProducto);
 
       if (datosProducto.esActualizacionProducto) {
         if (datosProducto.datosBasicos) {
           if (typeof ApiService.updateProducto === 'function') {
-            const response = await ApiService.updateProducto(datosProducto.id_producto, datosProducto.datosBasicos);
+            const response = await ApiService.updateProducto(datosProducto.id_producto!, datosProducto.datosBasicos);
             console.log('📥 Respuesta del servidor:', response);
           }
         }
 
         if (datosProducto.variantesNuevas && datosProducto.variantesNuevas.length > 0) {
           for (const variante of datosProducto.variantesNuevas) {
-            await ApiService.addVarianteProducto(datosProducto.id_producto, variante);
+            await ApiService.addVarianteProducto(datosProducto.id_producto!, variante);
           }
         }
       } else {
@@ -242,13 +334,14 @@ const ProductosAdmin = () => {
   };
 
   // Handlers de variante
-  const handleAgregarVariante = (producto) => {
+  const handleAgregarVariante = (producto: Producto): void => {
     setProductoEditar(producto);
     setShowVarianteModal(true);
   };
 
-  const handleGuardarVariante = async (datosVariante) => {
+  const handleGuardarVariante = async (datosVariante: any): Promise<void> => {
     try {
+      if (!productoEditar) return;
       await ApiService.addVarianteProducto(productoEditar.id_producto, datosVariante);
       await cargarDatos();
       setShowVarianteModal(false);
@@ -258,7 +351,7 @@ const ProductosAdmin = () => {
     }
   };
 
-  const handleEliminarVariante = async (varianteId, descripcion) => {
+  const handleEliminarVariante = async (varianteId: number, descripcion: string): Promise<void> => {
     const confirmDelete = window.confirm(
       `¿Estás seguro de eliminar la variante "${descripcion}"?\n\nEsta acción no se puede deshacer.`
     );
@@ -273,13 +366,13 @@ const ProductosAdmin = () => {
       } else {
         alert(response.message || 'Error al eliminar la variante');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error eliminando variante:', error);
       alert('Error al eliminar la variante: ' + (error.message || 'Error desconocido'));
     }
   };
 
-  const handleEliminarModalidad = async (modalidadId, nombre) => {
+  const handleEliminarModalidad = async (modalidadId: number, nombre: string): Promise<void> => {
     const confirmDelete = window.confirm(
       `¿Estás seguro de eliminar la modalidad "${nombre}"?\n\nEsta acción no se puede deshacer.`
     );
@@ -294,13 +387,13 @@ const ProductosAdmin = () => {
       } else {
         alert(response.message || 'Error al eliminar la modalidad');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error eliminando modalidad:', error);
       alert('Error al eliminar la modalidad: ' + (error.message || 'Error desconocido'));
     }
   };
 
-  const handleDuplicarProducto = async (producto) => {
+  const handleDuplicarProducto = async (producto: Producto): Promise<void> => {
     const nuevoNombre = prompt(
       'Nombre para el producto duplicado:',
       `${producto.modelo} (COPIA)`
@@ -319,75 +412,161 @@ const ProductosAdmin = () => {
       } else {
         alert(response.message || 'Error al duplicar el producto');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error duplicando producto:', error);
       alert('Error al duplicar el producto: ' + (error.message || 'Error desconocido'));
     }
   };
 
   // Handler de modalidad
-  const handleModalidadUpdate = (productoId, varianteId, modalidadId, field, newValue) => {
-    const isPriceField = ['costo', 'neto', 'factura'].includes(field);
-    const value = isPriceField ? parseFloat(newValue) : newValue;
+ // Reemplaza la función handleModalidadUpdate con esta versión corregida:
 
-    if (isPriceField && isNaN(value)) { setEditingInfo(null); return; }
+const handleModalidadUpdate = (
+  productoId: number, 
+  varianteId: number, 
+  modalidadId: number, 
+  field: string, 
+  newValue: string | number
+): void => {
+  const isPriceField = ['costo', 'neto', 'factura'].includes(field);
+  const value = isPriceField ? parseFloat(String(newValue)) : newValue;
 
-    const producto = productos.find(p => p.id_producto === productoId);
-    if (!producto) return;
-    const variante = producto.opciones.find(v => v.id_variante === varianteId);
-    const modalidad = variante.modalidades.find(m => m.id_modalidad === modalidadId);
-    if (!modalidad) return;
+  if (isPriceField && isNaN(value as number)) { 
+    setEditingInfo(null); 
+    return; 
+  }
 
-    const executeApiUpdate = async (updates, updateValue) => {
-        const updatePayload = isPriceField ? { precios: { [field]: updateValue } } : { [field]: updateValue };
-        try {
-          await Promise.all(updates.map(u => ApiService.updateModalidad(u.modalidadId, updatePayload)));
+  const producto = productos.find(p => p.id_producto === productoId);
+  if (!producto) return;
+  const variante = (producto.opciones || []).find(v => v.id_variante === varianteId);
+  if (!variante) return;
+  const modalidad = (variante.modalidades || []).find(m => m.id_modalidad === modalidadId);
+  if (!modalidad) return;
 
-          setProductos(current => current.map(p => {
-            if (p.id_producto === productoId) {
-              return { ...p, opciones: p.opciones.map(v => {
-                const u = updates.find(up => up.varianteId === v.id_variante);
-                if (!u) return v;
-                return { ...v, modalidades: v.modalidades.map(m => m.id_modalidad === u.modalidadId
-                    ? { ...m,
-                        precios: isPriceField ? { ...m.precios, [field]: updateValue.toString() } : m.precios,
-                        ...(!isPriceField && {[field]: updateValue})
-                      }
-                    : m
-                )};
-              })};
-            }
-            return p;
-          }));
-        } catch(e) { console.error("Error al guardar:", e); alert("Error al guardar."); cargarDatos();
-        } finally { closeConfirmation(); }
-      };
+  interface Update {
+    productoId: number;
+    varianteId: number;
+    modalidadId: number;
+  }
 
-    if (isPriceField) {
-      const originalPrice = parseFloat(modalidad.precios[field]);
-      const siblings = producto.opciones
-        .filter(v => v.id_variante !== varianteId)
-        .map(v => ({ v, m: v.modalidades.find(m => m.nombre === modalidad.nombre && parseFloat(m.precios[field]) === originalPrice) }))
-        .filter(item => item.m);
+  const executeApiUpdate = async (updates: Update[], updatePayload: any): Promise<void> => {
+    // CORRECCIÓN: Determinar si es una actualización de precios o de otro campo.
+    const isPricePayload = Object.keys(updatePayload).some(k => ['neto', 'factura', 'costo'].includes(k));
+    const finalPayload = isPricePayload ? { precios: updatePayload } : updatePayload;
 
-      const updates = [{ productoId, varianteId, modalidadId }];
-      if (siblings.length > 0) {
-        setConfirmation({
-          isOpen: true, title: 'Actualización de Precios en Grupo',
-          message: `Modificando para <strong>'${producto.modelo} - ${variante.descripcion_opcion} (${modalidad.nombre})'</strong>.<br/>Hay ${siblings.length} otra(s) variante(s) con el mismo precio. ¿Actualizar todas a ${ApiService.formatPrice(value)}?`,
-          variantDetails: siblings.map(s => `${s.v.descripcion_opcion} (${s.m.nombre})`),
-          onConfirm: () => executeApiUpdate([...updates, ...siblings.map(s => ({ productoId, varianteId: s.v.id_variante, modalidadId: s.m.id_modalidad }))], value),
-          onCancel: () => executeApiUpdate(updates, value),
-          confirmText: 'Sí, Actualizar Todas', cancelText: 'No, Solo Esta'
-        });
-      } else { executeApiUpdate(updates, value); }
-    } else {
-      executeApiUpdate([{ productoId, varianteId, modalidadId }], value);
+    try {
+      await Promise.all(
+        updates.map(u => ApiService.updateModalidad(u.modalidadId, finalPayload))
+      );
+
+      setProductos(current => current.map(p => {
+        if (p.id_producto === productoId) {
+          return { 
+            ...p, 
+            opciones: (p.opciones || []).map(v => {
+              const u = updates.find(up => up.varianteId === v.id_variante);
+              if (!u) return v;
+              
+              return { 
+                ...v, 
+                modalidades: (v.modalidades || []).map(m => {
+                  if (m.id_modalidad === u.modalidadId) {
+                    const updatedModalidad: Modalidad = {
+                      ...m,
+                      ...(isPricePayload && {
+                        precios: {
+                          ...m.precios,
+                          costo: m.precios?.costo || '0',
+                          neto: String(updatePayload.neto ?? m.precios?.neto),
+                          factura: String(updatePayload.factura ?? m.precios?.factura),
+                          ...(updatePayload.costo && { costo: String(updatePayload.costo) })
+                        }
+                      }),
+                      ...(!isPricePayload && { ...updatePayload })
+                    };
+                    return updatedModalidad;
+                  }
+                  return m;
+                })
+              };
+            })
+          };
+        }
+        return p;
+      }));
+    } catch(e) { 
+      console.error("Error al guardar:", e); 
+      alert("Error al guardar."); 
+      cargarDatos();
+    } finally { 
+      closeConfirmation(); 
     }
   };
 
+  let priceUpdatePayload: { neto?: number; factura?: number; costo?: number } = {};
+
+  if (field === 'factura') {
+    const facturaNum = value as number;
+    priceUpdatePayload = {
+      factura: facturaNum,
+      neto: Math.round(facturaNum / 1.19)
+    };
+  } else if (field === 'neto') {
+    const netoNum = value as number;
+    priceUpdatePayload = {
+      neto: netoNum,
+      factura: Math.round(netoNum * 1.19)
+    };
+  } else if (field === 'costo') {
+    priceUpdatePayload = { costo: value as number };
+  } else {
+    // Handle non-price field updates
+    executeApiUpdate([{ productoId, varianteId, modalidadId }], { [field]: value });
+    return;
+  }
+
+  if (Object.keys(priceUpdatePayload).length > 0) {
+    const originalPrice = parseFloat(modalidad.precios?.[field as keyof typeof modalidad.precios] || '0');
+    const siblings = (producto.opciones || [])
+      .filter(v => v.id_variante !== varianteId)
+      .map(v => ({ 
+        v, 
+        m: (v.modalidades || []).find(m => 
+          m.nombre === modalidad.nombre && 
+          m.precios &&
+          parseFloat(m.precios[field as keyof typeof m.precios]) === originalPrice
+        ) 
+      }))
+      .filter(item => item.m);
+
+    const updates: Update[] = [{ productoId, varianteId, modalidadId }];
+    
+    if (siblings.length > 0 && (field === 'neto' || field === 'factura')) {
+      const displayValue = field === 'neto' ? priceUpdatePayload.neto : priceUpdatePayload.factura;
+      setConfirmation({
+        isOpen: true, 
+        title: 'Actualización de Precios en Grupo',
+        message: `Modificando para <strong>'${producto.modelo} - ${variante.descripcion_opcion} (${modalidad.nombre})'</strong>.<br/>Hay ${siblings.length} otra(s) variante(s) con el mismo precio. ¿Actualizar todas a ${ApiService.formatPrice(displayValue as number)}?`,
+        variantDetails: siblings.map(s => `${s.v.descripcion_opcion} (${s.m!.nombre})`),
+        onConfirm: () => executeApiUpdate([
+          ...updates, 
+          ...siblings.map(s => ({ 
+            productoId, 
+            varianteId: s.v.id_variante!, 
+            modalidadId: s.m!.id_modalidad! 
+          }))
+        ], priceUpdatePayload),
+        onCancel: () => executeApiUpdate(updates, priceUpdatePayload),
+        confirmText: 'Sí, Actualizar Todas', 
+        cancelText: 'No, Solo Esta'
+      });
+    } else { 
+      executeApiUpdate(updates, priceUpdatePayload); 
+    }
+  }
+};
   // Selección de variantes
-  const handleVariantSelection = (varianteId, isSelected) => {
+  const handleVariantSelection = (varianteId: number, isSelected: boolean): void => {
     const newSelection = new Set(selectedVariants);
     if (isSelected) {
       newSelection.add(varianteId);
@@ -397,16 +576,16 @@ const ProductosAdmin = () => {
     setSelectedVariants(newSelection);
   };
 
-  const handleSelectAllVariants = () => {
-    const allVariantIds = productos.flatMap(p => p.opciones.map(v => v.id_variante));
+  const handleSelectAllVariants = (): void => {
+    const allVariantIds = (productos || []).flatMap(p => (p.opciones || []).map(v => v.id_variante!));
     setSelectedVariants(new Set(allVariantIds));
   };
 
-  const handleDeselectAllVariants = () => {
+  const handleDeselectAllVariants = (): void => {
     setSelectedVariants(new Set());
   };
 
-  const handleMassiveStockUpdate = async (updateData) => {
+  const handleMassiveStockUpdate = async (updateData: UpdateData): Promise<void> => {
     const { operation, amount, reason } = updateData;
 
     try {
@@ -415,20 +594,20 @@ const ProductosAdmin = () => {
     } catch (error) {
       console.error('Error en actualización masiva:', error);
     } finally {
-        setShowStockMassiveModal(false);
-        setSelectedVariants(new Set());
+      setShowStockMassiveModal(false);
+      setSelectedVariants(new Set());
     }
   };
 
-  const handleOpenModernStockModal = (varianteId) => {
+  const handleOpenModernStockModal = (varianteId: number): void => {
     setSelectedVarianteIdForStock(varianteId);
     setShowModernStockModal(true);
   };
 
-  const handleCloseModernStockModal = () => {
+  const handleCloseModernStockModal = (): void => {
     setShowModernStockModal(false);
     setSelectedVarianteIdForStock(null);
-    cargarDatos();
+    // La llamada a cargarDatos() ha sido eliminada para prevenir la recarga.
   };
 
   // Effects
@@ -500,7 +679,7 @@ const ProductosAdmin = () => {
         {!loading && paginacion.pages > 1 && (
           <ProductosPagination
             paginacion={paginacion}
-            onPageChange={(page) => setFiltros({ ...filtros, page })}
+            onPageChange={(page: number) => setFiltros({ ...filtros, page })}
           />
         )}
       </div>
@@ -536,7 +715,7 @@ const ProductosAdmin = () => {
         skipConfirmation={stockConfirmation.skipConfirmation}
         onConfirm={handleStockConfirmationConfirm}
         onCancel={handleStockConfirmationCancel}
-        onChange={(updates) => setStockConfirmation(prev => ({ ...prev, ...updates }))}
+        onChange={(updates: Partial<StockConfirmationState>) => setStockConfirmation(prev => ({ ...prev, ...updates }))}
       />
 
       {/* Modal de stock detallado */}
@@ -553,11 +732,12 @@ const ProductosAdmin = () => {
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {selectedVarianteIdForStock && (
-                <ModernStockManager
+                <UnifiedStockManager
                   varianteId={selectedVarianteIdForStock}
                   modo="admin"
-                  onStockUpdate={handleCloseModernStockModal}
-                  showConfiguration={true}
+                  onStockUpdate={handleUnifiedStockUpdate}
+                  showConfiguration
+                  showTransferOptions
                 />
               )}
             </div>

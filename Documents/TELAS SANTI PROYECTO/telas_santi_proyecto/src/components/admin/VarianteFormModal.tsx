@@ -1,10 +1,39 @@
+// src/components/admin/VarianteFormModal.tsx
 import React, { useState } from 'react';
 import { X, Plus, Trash2, Save, Loader2, Tag, Package, Percent, Gift } from 'lucide-react';
+import { 
+  VarianteFormModalProps, 
+  VarianteFormData,
+  Modalidad 
+} from '../../types/productos'; // ✅ Correcto
 
-const VarianteFormModal = ({ isOpen, onClose, onSave, producto }) => {
-  const [loading, setLoading] = useState(false);
-  const [tipoVariante, setTipoVariante] = useState('normal'); // normal, oferta, paquete
-  const [formData, setFormData] = useState({
+interface TemplateModalidad extends Omit<Modalidad, 'id'> {
+  nombre: string;
+  descripcion: string;
+  cantidad_base: number;
+  es_cantidad_variable: boolean;
+  minimo_cantidad: number;
+  precio_costo: number;
+  precio_neto: number;
+  precio_factura: number;
+}
+
+interface Template {
+  descripcion: string;
+  modalidades: TemplateModalidad[];
+}
+
+type TipoVariante = 'normal' | 'oferta' | 'paquete' | 'descuento';
+
+const VarianteFormModal: React.FC<VarianteFormModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  producto 
+}) => {
+  const [loading, setLoading] = useState<boolean>(false);
+  const [tipoVariante, setTipoVariante] = useState<TipoVariante>('normal');
+  const [formData, setFormData] = useState<VarianteFormData>({
     color: '',
     medida: '',
     material: '',
@@ -13,7 +42,7 @@ const VarianteFormModal = ({ isOpen, onClose, onSave, producto }) => {
     modalidades: []
   });
 
-  const templatesPorTipo = {
+  const templatesPorTipo: Record<string, Template> = {
     oferta: {
       descripcion: 'Oferta especial',
       modalidades: [
@@ -61,7 +90,7 @@ const VarianteFormModal = ({ isOpen, onClose, onSave, producto }) => {
     }
   };
 
-  const aplicarTemplate = (tipo) => {
+  const aplicarTemplate = (tipo: string): void => {
     if (templatesPorTipo[tipo]) {
       const template = templatesPorTipo[tipo];
       setFormData({
@@ -75,7 +104,7 @@ const VarianteFormModal = ({ isOpen, onClose, onSave, producto }) => {
     }
   };
 
-  const agregarModalidad = () => {
+  const agregarModalidad = (): void => {
     setFormData({
       ...formData,
       modalidades: [
@@ -95,7 +124,7 @@ const VarianteFormModal = ({ isOpen, onClose, onSave, producto }) => {
     });
   };
 
-  const updateModalidad = (modalidadId, field, value) => {
+  const updateModalidad = (modalidadId: number, field: keyof Modalidad, value: any): void => {
     setFormData({
       ...formData,
       modalidades: formData.modalidades.map(m =>
@@ -104,14 +133,14 @@ const VarianteFormModal = ({ isOpen, onClose, onSave, producto }) => {
     });
   };
 
-  const eliminarModalidad = (modalidadId) => {
+  const eliminarModalidad = (modalidadId: number): void => {
     setFormData({
       ...formData,
       modalidades: formData.modalidades.filter(m => m.id !== modalidadId)
     });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     if (formData.modalidades.length === 0) {
       alert('Debe agregar al menos una modalidad de venta');
       return;
@@ -264,7 +293,7 @@ const VarianteFormModal = ({ isOpen, onClose, onSave, producto }) => {
                   <div className="flex justify-between items-start mb-3">
                     <h4 className="font-medium text-gray-700">Modalidad {index + 1}</h4>
                     <button
-                      onClick={() => eliminarModalidad(modalidad.id)}
+                      onClick={() => eliminarModalidad(modalidad.id!)}
                       className="text-red-500 hover:text-red-700"
                     >
                       <Trash2 size={16} />
@@ -279,7 +308,7 @@ const VarianteFormModal = ({ isOpen, onClose, onSave, producto }) => {
                       <input
                         type="text"
                         value={modalidad.nombre}
-                        onChange={(e) => updateModalidad(modalidad.id, 'nombre', e.target.value)}
+                        onChange={(e) => updateModalidad(modalidad.id!, 'nombre', e.target.value)}
                         className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         placeholder="OFERTA 3X2"
                       />
@@ -292,7 +321,7 @@ const VarianteFormModal = ({ isOpen, onClose, onSave, producto }) => {
                       <input
                         type="number"
                         value={modalidad.cantidad_base}
-                        onChange={(e) => updateModalidad(modalidad.id, 'cantidad_base', parseFloat(e.target.value) || 1)}
+                        onChange={(e) => updateModalidad(modalidad.id!, 'cantidad_base', parseFloat(e.target.value) || 1)}
                         className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         min="1"
                       />
@@ -305,7 +334,7 @@ const VarianteFormModal = ({ isOpen, onClose, onSave, producto }) => {
                       <input
                         type="number"
                         value={modalidad.precio_neto}
-                        onChange={(e) => updateModalidad(modalidad.id, 'precio_neto', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => updateModalidad(modalidad.id!, 'precio_neto', parseFloat(e.target.value) || 0)}
                         className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -318,7 +347,7 @@ const VarianteFormModal = ({ isOpen, onClose, onSave, producto }) => {
                       <input
                         type="number"
                         value={modalidad.precio_factura}
-                        onChange={(e) => updateModalidad(modalidad.id, 'precio_factura', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => updateModalidad(modalidad.id!, 'precio_factura', parseFloat(e.target.value) || 0)}
                         className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         min="0"
                       />
@@ -331,7 +360,7 @@ const VarianteFormModal = ({ isOpen, onClose, onSave, producto }) => {
                       <input
                         type="text"
                         value={modalidad.descripcion}
-                        onChange={(e) => updateModalidad(modalidad.id, 'descripcion', e.target.value)}
+                        onChange={(e) => updateModalidad(modalidad.id!, 'descripcion', e.target.value)}
                         className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         placeholder="Descripción de la modalidad"
                       />

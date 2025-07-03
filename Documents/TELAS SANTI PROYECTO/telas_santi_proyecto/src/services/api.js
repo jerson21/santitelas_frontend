@@ -1617,7 +1617,7 @@ async getDashboardBodega(bodegaId) {
  */
 async getDisponibilidadVariante(varianteId, incluirInactivas = false) {
   const params = new URLSearchParams({
-    para_venta: 'true',
+    para_venta: 'false',
     incluir_inactivas: incluirInactivas ? 'true' : 'false'
   }).toString();
 
