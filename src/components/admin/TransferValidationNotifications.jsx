@@ -40,39 +40,71 @@ const TransferValidationNotifications = () => {
   const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
   const [isUpdating, setIsUpdating] = useState(false);
   
-  // --- NUEVA LÓGICA DE SONIDO ---
-  // Este estado controla si el sonido ya se reprodujo para el lote actual de notificaciones.
-  const [hasPlayedSoundForThisBatch, setHasPlayedSoundForThisBatch] = useState(false);
+  // --- LÓGICA DE SONIDO MEJORADA ---
+  // Referencia al audio actual para poder pausarlo
+  const audioRef = useRef(null);
   
   // Usamos useRef para comparar el contador anterior y decidir si auto-expandir el panel.
   const previousCountRef = useRef(0);
 
   const playNotificationSound = () => {
     try {
+      // Si hay un audio reproduciéndose, lo detenemos primero
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      
+      // Creamos y reproducimos el nuevo audio
       const audio = new Audio('/sounds/sound2.mp3');
       audio.volume = 0.5;
+      audioRef.current = audio; // Guardamos la referencia
+      
       audio.play().catch(error => {
         console.error('Error al reproducir sonido de notificación:', error);
       });
+      
+      // Limpiar la referencia cuando termine de reproducirse
+      audio.onended = () => {
+        audioRef.current = null;
+      };
     } catch (error) {
       console.error('Error al crear audio de notificación:', error);
     }
   };
 
-  // --- useEffect DEDICADO Y CORREGIDO PARA EL SONIDO ---
+  const pauseNotificationSound = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+  };
+
+  // --- useEffect DEDICADO PARA EL SONIDO ---
   useEffect(() => {
     const currentCount = validacionesPendientes.length;
+    const previousCount = previousCountRef.current;
 
-    // Si hay notificaciones Y AÚN NO hemos tocado el sonido para este lote, lo hacemos.
-    if (currentCount > 0 && !hasPlayedSoundForThisBatch) {
+    // Si llega una nueva validación (el contador aumentó)
+    if (currentCount > previousCount) {
       playNotificationSound();
-      setHasPlayedSoundForThisBatch(true); // Marcamos que ya sonó.
-    } 
-    // Si ya no hay notificaciones, reiniciamos la bandera para el próximo lote.
-    else if (currentCount === 0) {
-      setHasPlayedSoundForThisBatch(false);
     }
-  }, [validacionesPendientes.length, hasPlayedSoundForThisBatch]);
+    // Si ya no hay notificaciones, pausamos cualquier sonido que esté reproduciéndose
+    else if (currentCount === 0) {
+      pauseNotificationSound();
+    }
+
+    // Actualizamos la referencia del contador
+    previousCountRef.current = currentCount;
+  }, [validacionesPendientes.length]);
+
+  // Limpiar el audio cuando el componente se desmonte
+  useEffect(() => {
+    return () => {
+      pauseNotificationSound();
+    };
+  }, []);
 
 
   // --- useEffect para manejar la interfaz (notificación y auto-expansión) ---
@@ -117,6 +149,9 @@ const TransferValidationNotifications = () => {
   }, [validacionesPendientes]);
 
   const handleValidar = async (validacion, aprobada) => {
+    // Pausar el sonido inmediatamente cuando el usuario interactúa
+    pauseNotificationSound();
+    
     setProcessingId(validacion.id);
     
     let observaciones = '';
