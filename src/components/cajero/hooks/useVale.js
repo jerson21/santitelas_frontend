@@ -63,9 +63,12 @@ const useVale = (showToast, refreshEstadisticas) => {
     showToast(mensaje, esValeAntiguo ? 'warning' : 'success');
   }, [showToast]);
 
-  // Buscar vale
-  const searchVale = useCallback(async () => {
-    const validacion = validarNumeroVale(valeNumber);
+  // Buscar vale - acepta número directo o usa el estado
+  const searchVale = useCallback(async (numeroDirecto) => {
+    // Usar el número pasado directamente o el estado
+    const numeroABuscar = numeroDirecto || valeNumber;
+
+    const validacion = validarNumeroVale(numeroABuscar);
     if (!validacion.valido) {
       showToast(validacion.mensaje, 'error');
       return;
@@ -74,10 +77,10 @@ const useVale = (showToast, refreshEstadisticas) => {
     setLoading(true);
     try {
       const resultado = await apiService.getValeDetalles(validacion.numero);
-      
+
       if (resultado.success && resultado.data) {
         await processValeEncontrado(resultado.data, validacion.numero);
-        
+
       } else if (resultado.requiresConfirmation) {
         // Vale antiguo detectado - mostrar modal de confirmación
         console.log('🕒 Vale antiguo detectado:', resultado);
@@ -87,7 +90,7 @@ const useVale = (showToast, refreshEstadisticas) => {
           dias_atras: resultado.data.dias_atras
         });
         setShowValeAntiguoModal(true);
-        
+
       } else {
         showToast(resultado.message || 'No se encontró el vale', 'error');
         setCurrentVale(null);
