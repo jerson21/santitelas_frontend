@@ -97,29 +97,29 @@ const Header = ({ title, children, cartCount = 0, cartTotal = 0, onCartClick }) 
 
   return (
     <>
-      <header className="bg-white shadow-sm border-b sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+      <header className="bg-white shadow-sm border-b sticky top-0 z-40 overflow-x-hidden">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+          <div className="flex justify-between items-center h-14 sm:h-16 gap-2">
             {/* Left Section */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
-                className="lg:hidden p-2 text-gray-600 hover:text-blue-600 transition-colors rounded-lg hover:bg-gray-100"
+                className="lg:hidden p-1.5 sm:p-2 text-gray-600 hover:text-blue-600 transition-colors rounded-lg hover:bg-gray-100"
               >
-                <Menu className="w-6 h-6" />
+                <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
 
               {/* Logo y Título */}
-              <div className="flex items-center space-x-4">
-                <h1 className="text-2xl font-bold text-blue-600">Santi Telas</h1>
+              <div className="flex items-center gap-2 sm:gap-4">
+                <h1 className="text-lg sm:text-2xl font-bold text-blue-600 whitespace-nowrap">Santi Telas</h1>
                 {title && (
-                  <span className="hidden sm:block text-xl font-semibold text-gray-800">{title}</span>
+                  <span className="hidden md:block text-lg sm:text-xl font-semibold text-gray-800">{title}</span>
                 )}
               </div>
 
               {/* Role Badge */}
-              <span className={`hidden sm:flex px-3 py-1 rounded-full text-sm font-medium items-center space-x-1 ${getRoleColor()}`}>
+              <span className={`hidden md:flex px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium items-center gap-1 ${getRoleColor()}`}>
                 {getRoleIcon()}
                 <span className="capitalize">{user?.rol}</span>
               </span>
@@ -145,20 +145,20 @@ const Header = ({ title, children, cartCount = 0, cartTotal = 0, onCartClick }) 
             )}
 
             {/* Right Section */}
-            <div className="flex items-center space-x-2 sm:space-x-4">
+            <div className="flex items-center gap-1 sm:gap-2 md:gap-4 flex-shrink min-w-0">
               {/* Carrito Mejorado para Tablet */}
               {user?.rol === 'vendedor' && (
                 <button
                   onClick={onCartClick}
-                  className="relative p-3 text-gray-600 hover:text-blue-600 transition-colors bg-gray-50 hover:bg-blue-50 rounded-xl min-w-[80px] flex flex-col items-center"
+                  className="relative p-2 sm:p-3 text-gray-600 hover:text-blue-600 transition-colors bg-gray-50 hover:bg-blue-50 rounded-xl flex flex-col items-center flex-shrink-0"
                 >
-                  <ShoppingCart className="w-6 h-6" />
+                  <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
                   {cartCount > 0 && (
                     <>
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold">
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center font-bold">
                         {cartCount}
                       </span>
-                      <div className="text-xs font-semibold text-blue-600 mt-1">
+                      <div className="text-xs font-semibold text-blue-600 mt-1 hidden sm:block">
                         ${cartTotal.toFixed(0)}
                       </div>
                     </>
@@ -170,24 +170,24 @@ const Header = ({ title, children, cartCount = 0, cartTotal = 0, onCartClick }) 
               {children}
 
               {/* Notificaciones */}
-              <button className="relative p-2 text-gray-600 hover:text-blue-600 transition-colors rounded-lg hover:bg-gray-100">
-                <Bell className="w-5 h-5" />
+              <button className="relative p-1.5 sm:p-2 text-gray-600 hover:text-blue-600 transition-colors rounded-lg hover:bg-gray-100 flex-shrink-0 hidden sm:block">
+                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
                   3
                 </span>
               </button>
 
               {/* User Menu */}
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center space-x-3 p-2 text-gray-600 hover:text-blue-600 transition-colors rounded-lg hover:bg-gray-100"
+                  className="flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 text-gray-600 hover:text-blue-600 transition-colors rounded-lg hover:bg-gray-100"
                 >
-                  <div className="text-right hidden sm:block">
+                  <div className="text-right hidden md:block">
                     <p className="text-sm font-medium text-gray-700">{user?.nombre_completo}</p>
                     <p className="text-xs text-gray-500">@{user?.username}</p>
                   </div>
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 rounded-full flex items-center justify-center">
                     {getRoleIcon()}
                   </div>
                 </button>

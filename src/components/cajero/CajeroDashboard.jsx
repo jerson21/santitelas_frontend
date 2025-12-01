@@ -118,20 +118,23 @@ const CajeroDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header title="Caja">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-1 sm:gap-2 md:gap-4 flex-shrink-0">
           {/* Estadísticas del Día */}
           <button
             onClick={() => setShowEstadisticasModal(true)}
-            className="px-4 py-2 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg hover:from-blue-100 hover:to-blue-200 transition-all shadow-sm"
+            className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg hover:from-blue-100 hover:to-blue-200 transition-all shadow-sm flex-shrink-0"
             title="Ver estadísticas completas"
           >
-            <div className="flex items-center space-x-2">
-              <FileText className="w-5 h-5 text-blue-600" />
-              <span className="text-base font-bold text-blue-900">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+              <span className="text-sm sm:text-base font-bold text-blue-900">
                 {estadisticas.dia_actual.total_vales}
               </span>
-              <span className="text-sm text-blue-700">
-                {estadisticas.dia_actual.total_vales === 1 ? 'vale hoy' : 'vales hoy'}
+              <span className="text-xs sm:text-sm text-blue-700 hidden xs:inline">
+                {estadisticas.dia_actual.total_vales === 1 ? 'vale' : 'vales'}
+              </span>
+              <span className="text-xs sm:text-sm text-blue-700 hidden sm:inline">
+                hoy
               </span>
             </div>
           </button>
@@ -140,38 +143,38 @@ const CajeroDashboard = () => {
           {estadisticas.dia_actual.pendientes > 0 && (
             <button
               onClick={() => setShowReportesModal(true)}
-              className="px-4 py-2 bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-lg hover:from-orange-100 hover:to-orange-200 transition-all shadow-sm"
+              className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-lg hover:from-orange-100 hover:to-orange-200 transition-all shadow-sm flex-shrink-0"
               title="Ver vales pendientes"
             >
-              <div className="flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-orange-600" />
-                <span className="text-base font-bold text-orange-900">
+              <div className="flex items-center gap-1 sm:gap-2">
+                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
+                <span className="text-sm sm:text-base font-bold text-orange-900">
                   {estadisticas.dia_actual.pendientes}
                 </span>
-                <span className="text-sm text-orange-600">
+                <span className="text-xs sm:text-sm text-orange-600 hidden sm:inline">
                   {estadisticas.dia_actual.pendientes === 1 ? 'pendiente' : 'pendientes'}
                 </span>
               </div>
             </button>
           )}
 
-          <div className="h-8 w-px bg-gray-300"></div>
+          <div className="h-6 sm:h-8 w-px bg-gray-300 hidden sm:block"></div>
 
           {/* Buscar Cliente */}
           <button
             onClick={() => setShowBuscarClienteModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm flex-shrink-0"
             title="Buscar Cliente por RUT"
           >
-            <Search className="w-5 h-5" />
-            <span className="text-base font-medium">Buscar Cliente</span>
+            <Search className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-xs sm:text-sm md:text-base font-medium hidden sm:inline">Buscar Cliente</span>
           </button>
 
-          <div className="h-8 w-px bg-gray-300"></div>
+          <div className="h-6 sm:h-8 w-px bg-gray-300 hidden sm:block"></div>
 
           {/* Estado del Turno */}
           <button
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all shadow-sm ${
+            className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all shadow-sm flex-shrink-0 ${
               turnoAbierto
                 ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300'
                 : 'bg-red-100 text-red-800 hover:bg-red-200 border border-red-300'
@@ -179,8 +182,8 @@ const CajeroDashboard = () => {
             onClick={() => setShowTurnoModal(true)}
             title="Click para gestionar turno"
           >
-            <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${turnoAbierto ? 'bg-green-600' : 'bg-red-600'}`}></span>
-            <span className="text-base font-medium">{turnoAbierto ? 'Turno Abierto' : 'Turno Cerrado'}</span>
+            <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full animate-pulse flex-shrink-0 ${turnoAbierto ? 'bg-green-600' : 'bg-red-600'}`}></span>
+            <span className="text-xs sm:text-sm md:text-base font-medium hidden sm:inline">{turnoAbierto ? 'Turno Abierto' : 'Turno Cerrado'}</span>
           </button>
         </div>
       </Header>
