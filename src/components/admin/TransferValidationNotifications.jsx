@@ -64,6 +64,7 @@ const TransferValidationNotifications = () => {
   
   // Usamos useRef para comparar el contador anterior y decidir si auto-expandir el panel.
   const previousCountRef = useRef(0);
+  const previousCountForUIRef = useRef(0); // Ref separado para la UI
 
   const playNotificationSound = () => {
     try {
@@ -201,7 +202,7 @@ const TransferValidationNotifications = () => {
   // --- useEffect para manejar la interfaz (notificación y auto-expansión) ---
   useEffect(() => {
     const currentCount = validacionesPendientes.length;
-    const previousCount = previousCountRef.current;
+    const previousCount = previousCountForUIRef.current;
     
     // Si llega una nueva validación (el contador aumentó)
     if (currentCount > previousCount) {
@@ -229,7 +230,7 @@ const TransferValidationNotifications = () => {
     }
 
     // Siempre actualizamos la referencia del contador al final.
-    previousCountRef.current = currentCount;
+    previousCountForUIRef.current = currentCount;
 
   }, [validacionesPendientes.length, isExpanded]);
 
