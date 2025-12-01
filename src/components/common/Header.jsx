@@ -192,44 +192,51 @@ const Header = ({ title, children, cartCount = 0, cartTotal = 0, onCartClick }) 
                   </div>
                 </button>
 
-                {/* User Dropdown */}
-                {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="text-sm font-medium text-gray-900">{user?.nombre_completo}</p>
-                      <p className="text-xs text-gray-500">@{user?.username}</p>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-1 ${getRoleColor()}`}>
-                        {getRoleIcon()}
-                        <span className="ml-1 capitalize">{user?.rol}</span>
-                      </span>
-                    </div>
-                    
-                    <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
-                      <Settings className="w-4 h-4" />
-                      <span>Configuración</span>
-                    </button>
-                    
-                    <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
-                      <HelpCircle className="w-4 h-4" />
-                      <span>Ayuda</span>
-                    </button>
-                    
-                    <div className="border-t border-gray-100 mt-1">
-                      <button
-                        onClick={handleLogout}
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        <span>Cerrar sesión</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
         </div>
       </header>
+
+      {/* User Dropdown - Fuera del header para evitar overflow */}
+      {showUserMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowUserMenu(false)}
+          />
+          <div className="fixed top-14 sm:top-16 right-2 sm:right-4 w-52 sm:w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+            <div className="px-4 py-3 border-b border-gray-100">
+              <p className="text-sm font-medium text-gray-900">{user?.nombre_completo}</p>
+              <p className="text-xs text-gray-500">@{user?.username}</p>
+              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-1 ${getRoleColor()}`}>
+                {getRoleIcon()}
+                <span className="ml-1 capitalize">{user?.rol}</span>
+              </span>
+            </div>
+
+            <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+              <Settings className="w-4 h-4" />
+              <span>Configuración</span>
+            </button>
+
+            <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+              <HelpCircle className="w-4 h-4" />
+              <span>Ayuda</span>
+            </button>
+
+            <div className="border-t border-gray-100 mt-1">
+              <button
+                onClick={handleLogout}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Cerrar sesión</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Mobile Menu Overlay */}
       {showMobileMenu && (
@@ -247,7 +254,7 @@ const Header = ({ title, children, cartCount = 0, cartTotal = 0, onCartClick }) 
                 </button>
               </div>
             </div>
-            
+
             <nav className="p-2">
               {navOptions.map((option) => (
                 <button
@@ -265,14 +272,6 @@ const Header = ({ title, children, cartCount = 0, cartTotal = 0, onCartClick }) 
             </nav>
           </div>
         </div>
-      )}
-
-      {/* Click outside handlers */}
-      {showUserMenu && (
-        <div 
-          className="fixed inset-0 z-30" 
-          onClick={() => setShowUserMenu(false)}
-        />
       )}
     </>
   );

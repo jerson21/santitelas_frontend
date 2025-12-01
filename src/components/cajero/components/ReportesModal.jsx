@@ -185,50 +185,50 @@ const ReportesModal = ({ isOpen, onClose, onValeSelect, onVerDetalle }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-7xl mx-4 max-h-[95vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg w-full max-w-7xl max-h-[98vh] sm:max-h-[95vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-            <FileText className="w-6 h-6 text-blue-600" />
-            <h3 className="text-2xl font-bold text-gray-800">Reportes de Caja</h3>
+        <div className="flex justify-between items-center p-3 sm:p-6 border-b border-gray-200">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+            <h3 className="text-lg sm:text-2xl font-bold text-gray-800">Reportes de Caja</h3>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors p-1"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 px-6">
+        {/* Tabs - scrolleable en móvil */}
+        <div className="flex border-b border-gray-200 px-2 sm:px-6 overflow-x-auto">
           <button
             onClick={() => setActiveTab('cobrados')}
-            className={`px-6 py-3 font-medium transition-colors ${
+            className={`px-3 sm:px-6 py-2 sm:py-3 font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTab === 'cobrados'
                 ? 'text-blue-600 border-b-2 border-blue-600'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            <span className="flex items-center space-x-2">
+            <span className="flex items-center gap-1 sm:gap-2">
               <CheckCircle className="w-4 h-4" />
-              <span>Vales Cobrados</span>
+              <span className="text-sm sm:text-base">Cobrados</span>
             </span>
           </button>
           <button
             onClick={() => setActiveTab('por-cobrar')}
-            className={`px-6 py-3 font-medium transition-colors ${
+            className={`px-3 sm:px-6 py-2 sm:py-3 font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTab === 'por-cobrar'
                 ? 'text-orange-600 border-b-2 border-orange-600'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            <span className="flex items-center space-x-2">
+            <span className="flex items-center gap-1 sm:gap-2">
               <Clock className="w-4 h-4" />
-              <span>Vales Por Cobrar</span>
+              <span className="text-sm sm:text-base">Por Cobrar</span>
               {resumenPorCobrar?.totales?.cantidad_total > 0 && (
-                <span className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full text-xs font-semibold">
+                <span className="bg-orange-100 text-orange-800 px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-semibold">
                   {resumenPorCobrar.totales.cantidad_total}
                 </span>
               )}
@@ -236,21 +236,21 @@ const ReportesModal = ({ isOpen, onClose, onValeSelect, onVerDetalle }) => {
           </button>
           <button
             onClick={() => setActiveTab('resumen')}
-            className={`px-6 py-3 font-medium transition-colors ${
+            className={`px-3 sm:px-6 py-2 sm:py-3 font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
               activeTab === 'resumen'
                 ? 'text-purple-600 border-b-2 border-purple-600'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            <span className="flex items-center space-x-2">
+            <span className="flex items-center gap-1 sm:gap-2">
               <Calendar className="w-4 h-4" />
-              <span>Resumen del Día</span>
+              <span className="text-sm sm:text-base">Resumen</span>
             </span>
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -259,40 +259,40 @@ const ReportesModal = ({ isOpen, onClose, onValeSelect, onVerDetalle }) => {
             <>
               {/* TAB: VALES COBRADOS */}
               {activeTab === 'cobrados' && (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {/* Filtros y búsqueda */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                           Fecha Inicio
                         </label>
                         <input
                           type="date"
                           value={filtrosCobrados.fecha_inicio}
                           onChange={(e) => setFiltrosCobrados({...filtrosCobrados, fecha_inicio: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                           Fecha Fin
                         </label>
                         <input
                           type="date"
                           value={filtrosCobrados.fecha_fin}
                           onChange={(e) => setFiltrosCobrados({...filtrosCobrados, fecha_fin: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                           Límite
                         </label>
                         <select
                           value={filtrosCobrados.limite}
                           onChange={(e) => setFiltrosCobrados({...filtrosCobrados, limite: parseInt(e.target.value)})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value={25}>25 vales</option>
                           <option value={50}>50 vales</option>
@@ -303,24 +303,24 @@ const ReportesModal = ({ isOpen, onClose, onValeSelect, onVerDetalle }) => {
                       <div className="flex items-end">
                         <button
                           onClick={cargarValesCobrados}
-                          className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                          className="w-full bg-blue-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-1 sm:gap-2 text-sm"
                         >
                           <Filter className="w-4 h-4" />
-                          <span>Aplicar Filtros</span>
+                          <span className="hidden sm:inline">Aplicar</span>
                         </button>
                       </div>
                     </div>
 
                     {/* Búsqueda */}
-                    <div className="mt-3">
+                    <div className="mt-2 sm:mt-3">
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                         <input
                           type="text"
-                          placeholder="Buscar por número de vale, venta, cliente o RUT..."
+                          placeholder="Buscar vale, cliente o RUT..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full pl-9 sm:pl-10 pr-4 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                     </div>
@@ -328,20 +328,20 @@ const ReportesModal = ({ isOpen, onClose, onValeSelect, onVerDetalle }) => {
 
                   {/* Resumen de cobrados */}
                   {resumenCobrados && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-3">
-                      <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-white border border-gray-200 rounded-lg p-2 sm:p-3">
+                      <div className="grid grid-cols-3 gap-2 sm:gap-4">
                         <div className="text-center">
-                          <p className="text-xs text-blue-600 font-medium mb-1">Cantidad de Vales</p>
-                          <p className="text-3xl font-bold text-blue-900">{resumenCobrados.totales.cantidad_vales}</p>
+                          <p className="text-[10px] sm:text-xs text-blue-600 font-medium mb-1">Cantidad</p>
+                          <p className="text-xl sm:text-3xl font-bold text-blue-900">{resumenCobrados.totales.cantidad_vales}</p>
                         </div>
                         <div className="text-center border-x border-gray-200">
-                          <p className="text-xs text-green-600 font-medium mb-1">Total Cobrado</p>
-                          <p className="text-3xl font-bold text-green-900">${formatCurrency(calcularBruto(resumenCobrados.totales.monto_total_cobrado))}</p>
-                          <p className="text-xs text-gray-500 mt-1">Neto: ${formatCurrency(resumenCobrados.totales.monto_total_cobrado)}</p>
+                          <p className="text-[10px] sm:text-xs text-green-600 font-medium mb-1">Total Cobrado</p>
+                          <p className="text-lg sm:text-3xl font-bold text-green-900">${formatCurrency(calcularBruto(resumenCobrados.totales.monto_total_cobrado))}</p>
+                          <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">Neto: ${formatCurrency(resumenCobrados.totales.monto_total_cobrado)}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs text-purple-600 font-medium mb-1">Descuentos</p>
-                          <p className="text-3xl font-bold text-purple-900">${formatCurrency(resumenCobrados.totales.descuentos_aplicados)}</p>
+                          <p className="text-[10px] sm:text-xs text-purple-600 font-medium mb-1">Descuentos</p>
+                          <p className="text-lg sm:text-3xl font-bold text-purple-900">${formatCurrency(resumenCobrados.totales.descuentos_aplicados)}</p>
                         </div>
                       </div>
                     </div>
@@ -421,13 +421,13 @@ const ReportesModal = ({ isOpen, onClose, onValeSelect, onVerDetalle }) => {
 
               {/* TAB: VALES POR COBRAR */}
               {activeTab === 'por-cobrar' && (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {/* Filtros */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Modo de Búsqueda
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                          Modo
                         </label>
                         <select
                           value={filtrosPorCobrar.usar_rango_fechas ? 'rango' : 'dias'}
@@ -435,55 +435,55 @@ const ReportesModal = ({ isOpen, onClose, onValeSelect, onVerDetalle }) => {
                             ...filtrosPorCobrar,
                             usar_rango_fechas: e.target.value === 'rango'
                           })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                          className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                         >
                           <option value="dias">Por Días</option>
-                          <option value="rango">Por Rango de Fechas</option>
+                          <option value="rango">Rango Fechas</option>
                         </select>
                       </div>
 
                       {!filtrosPorCobrar.usar_rango_fechas ? (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Días hacia atrás
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                            Días atrás
                           </label>
                           <select
                             value={filtrosPorCobrar.dias_atras}
                             onChange={(e) => setFiltrosPorCobrar({...filtrosPorCobrar, dias_atras: parseInt(e.target.value)})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                            className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                           >
-                            <option value={7}>Últimos 7 días</option>
-                            <option value={15}>Últimos 15 días</option>
-                            <option value={30}>Últimos 30 días</option>
-                            <option value={60}>Últimos 60 días</option>
-                            <option value={90}>Últimos 90 días</option>
-                            <option value={180}>Últimos 6 meses</option>
-                            <option value={365}>Último año</option>
-                            <option value={999999}>Todos (sin límite)</option>
+                            <option value={7}>7 días</option>
+                            <option value={15}>15 días</option>
+                            <option value={30}>30 días</option>
+                            <option value={60}>60 días</option>
+                            <option value={90}>90 días</option>
+                            <option value={180}>6 meses</option>
+                            <option value={365}>1 año</option>
+                            <option value={999999}>Todos</option>
                           </select>
                         </div>
                       ) : (
                         <>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                               Desde
                             </label>
                             <input
                               type="date"
                               value={filtrosPorCobrar.fecha_desde}
                               onChange={(e) => setFiltrosPorCobrar({...filtrosPorCobrar, fecha_desde: e.target.value})}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                              className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                               Hasta
                             </label>
                             <input
                               type="date"
                               value={filtrosPorCobrar.fecha_hasta}
                               onChange={(e) => setFiltrosPorCobrar({...filtrosPorCobrar, fecha_hasta: e.target.value})}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                              className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                             />
                           </div>
                         </>
@@ -492,58 +492,58 @@ const ReportesModal = ({ isOpen, onClose, onValeSelect, onVerDetalle }) => {
                       <div className="flex items-end">
                         <button
                           onClick={cargarValesPorCobrar}
-                          className="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center space-x-2"
+                          className="w-full bg-orange-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-1 sm:gap-2 text-sm"
                         >
                           <Filter className="w-4 h-4" />
-                          <span>Buscar</span>
+                          <span className="hidden sm:inline">Buscar</span>
                         </button>
                       </div>
                     </div>
 
-                    <div className="mt-3 flex items-center">
-                      <label className="flex items-center space-x-2 cursor-pointer">
+                    <div className="mt-2 sm:mt-3 flex items-center">
+                      <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={filtrosPorCobrar.solo_con_cliente}
                           onChange={(e) => setFiltrosPorCobrar({...filtrosPorCobrar, solo_con_cliente: e.target.checked})}
                           className="w-4 h-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
                         />
-                        <span className="text-sm font-medium text-gray-700">Solo con cliente asignado</span>
+                        <span className="text-xs sm:text-sm font-medium text-gray-700">Solo con cliente</span>
                       </label>
                     </div>
 
                     {/* Toggle vista */}
-                    <div className="mt-3 flex items-center justify-between">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <div className="mt-2 sm:mt-3 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                         <input
                           type="text"
-                          placeholder="Buscar por número de vale, cliente o vendedor..."
+                          placeholder="Buscar vale, cliente..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          className="w-full pl-9 sm:pl-10 pr-4 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                         />
                       </div>
-                      <div className="flex bg-gray-200 rounded-lg p-1">
+                      <div className="flex bg-gray-200 rounded-lg p-0.5 sm:p-1 flex-shrink-0">
                         <button
                           onClick={() => setVistaClientes(true)}
-                          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                          className={`px-2 sm:px-4 py-1 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                             vistaClientes
                               ? 'bg-white text-gray-900 shadow-sm'
                               : 'text-gray-600 hover:text-gray-900'
                           }`}
                         >
-                          Por Cliente
+                          Cliente
                         </button>
                         <button
                           onClick={() => setVistaClientes(false)}
-                          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                          className={`px-2 sm:px-4 py-1 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                             !vistaClientes
                               ? 'bg-white text-gray-900 shadow-sm'
                               : 'text-gray-600 hover:text-gray-900'
                           }`}
                         >
-                          Por Vale
+                          Vale
                         </button>
                       </div>
                     </div>
@@ -551,22 +551,22 @@ const ReportesModal = ({ isOpen, onClose, onValeSelect, onVerDetalle }) => {
 
                   {/* Resumen de pendientes */}
                   {resumenPorCobrar && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-3">
-                      <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-white border border-gray-200 rounded-lg p-2 sm:p-3">
+                      <div className="grid grid-cols-3 gap-2 sm:gap-4">
                         <div className="text-center">
-                          <p className="text-xs text-orange-600 font-medium mb-1">Vales Pendientes</p>
-                          <p className="text-3xl font-bold text-orange-900">{resumenPorCobrar.totales.cantidad_total}</p>
-                          <p className="text-xs text-gray-500 mt-1">C: {resumenPorCobrar.totales.con_cliente} | S: {resumenPorCobrar.totales.sin_cliente}</p>
+                          <p className="text-[10px] sm:text-xs text-orange-600 font-medium mb-1">Pendientes</p>
+                          <p className="text-xl sm:text-3xl font-bold text-orange-900">{resumenPorCobrar.totales.cantidad_total}</p>
+                          <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">C: {resumenPorCobrar.totales.con_cliente} | S: {resumenPorCobrar.totales.sin_cliente}</p>
                         </div>
                         <div className="text-center border-x border-gray-200">
-                          <p className="text-xs text-red-600 font-medium mb-1">Total Pendiente</p>
-                          <p className="text-3xl font-bold text-red-900">${formatCurrency(calcularBruto(resumenPorCobrar.totales.monto_total_pendiente))}</p>
-                          <p className="text-xs text-gray-500 mt-1">Neto: ${formatCurrency(resumenPorCobrar.totales.monto_total_pendiente)}</p>
+                          <p className="text-[10px] sm:text-xs text-red-600 font-medium mb-1">Total</p>
+                          <p className="text-lg sm:text-3xl font-bold text-red-900">${formatCurrency(calcularBruto(resumenPorCobrar.totales.monto_total_pendiente))}</p>
+                          <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">Neto: ${formatCurrency(resumenPorCobrar.totales.monto_total_pendiente)}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-xs text-blue-600 font-medium mb-1">Con Cliente</p>
-                          <p className="text-3xl font-bold text-blue-900">${formatCurrency(calcularBruto(resumenPorCobrar.totales.monto_con_cliente))}</p>
-                          <p className="text-xs text-gray-500 mt-1">Neto: ${formatCurrency(resumenPorCobrar.totales.monto_con_cliente)}</p>
+                          <p className="text-[10px] sm:text-xs text-blue-600 font-medium mb-1">Con Cliente</p>
+                          <p className="text-lg sm:text-3xl font-bold text-blue-900">${formatCurrency(calcularBruto(resumenPorCobrar.totales.monto_con_cliente))}</p>
+                          <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">Neto: ${formatCurrency(resumenPorCobrar.totales.monto_con_cliente)}</p>
                         </div>
                       </div>
                     </div>
@@ -793,110 +793,110 @@ const ReportesModal = ({ isOpen, onClose, onValeSelect, onVerDetalle }) => {
 
               {/* TAB: RESUMEN DEL DÍA */}
               {activeTab === 'resumen' && resumenDelDia && (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {/* Selector de fecha */}
-                  <div className="bg-gray-50 p-4 rounded-lg flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <label className="text-sm font-medium text-gray-700">
+                  <div className="bg-gray-50 p-3 sm:p-4 rounded-lg flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+                      <label className="text-xs sm:text-sm font-medium text-gray-700">
                         Fecha:
                       </label>
                       <input
                         type="date"
                         value={fechaResumen}
                         onChange={(e) => setFechaResumen(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="px-2 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                       />
                       <button
                         onClick={cargarResumenDelDia}
-                        className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                        className="bg-purple-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm"
                       >
                         Actualizar
                       </button>
                     </div>
-                    <button className="flex items-center space-x-2 text-purple-600 hover:text-purple-700">
-                      <Download className="w-5 h-5" />
+                    <button className="flex items-center gap-2 text-purple-600 hover:text-purple-700 text-sm">
+                      <Download className="w-4 h-4 sm:w-5 sm:h-5" />
                       <span>Exportar</span>
                     </button>
                   </div>
 
                   {/* Resumen General */}
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-sm text-blue-600 font-medium">Total Vales</p>
-                      <p className="text-2xl font-bold text-blue-900">{resumenDelDia.resumen_general.total_vales}</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 sm:p-4">
+                      <p className="text-[10px] sm:text-sm text-blue-600 font-medium">Vales</p>
+                      <p className="text-lg sm:text-2xl font-bold text-blue-900">{resumenDelDia.resumen_general.total_vales}</p>
                     </div>
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <p className="text-sm text-green-600 font-medium">Completados</p>
-                      <p className="text-2xl font-bold text-green-900">{resumenDelDia.resumen_general.completados}</p>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-2 sm:p-4">
+                      <p className="text-[10px] sm:text-sm text-green-600 font-medium">Listos</p>
+                      <p className="text-lg sm:text-2xl font-bold text-green-900">{resumenDelDia.resumen_general.completados}</p>
                     </div>
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <p className="text-sm text-yellow-600 font-medium">Pendientes</p>
-                      <p className="text-2xl font-bold text-yellow-900">{resumenDelDia.resumen_general.pendientes}</p>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 sm:p-4">
+                      <p className="text-[10px] sm:text-sm text-yellow-600 font-medium">Pend.</p>
+                      <p className="text-lg sm:text-2xl font-bold text-yellow-900">{resumenDelDia.resumen_general.pendientes}</p>
                     </div>
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                      <p className="text-sm text-purple-600 font-medium">Eficiencia</p>
-                      <p className="text-2xl font-bold text-purple-900">{resumenDelDia.resumen_general.eficiencia}%</p>
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 sm:p-4 hidden sm:block">
+                      <p className="text-[10px] sm:text-sm text-purple-600 font-medium">Eficiencia</p>
+                      <p className="text-lg sm:text-2xl font-bold text-purple-900">{resumenDelDia.resumen_general.eficiencia}%</p>
                     </div>
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <p className="text-sm text-gray-600 font-medium">Cancelados</p>
-                      <p className="text-2xl font-bold text-gray-900">{resumenDelDia.resumen_general.cancelados}</p>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 sm:p-4 hidden sm:block">
+                      <p className="text-[10px] sm:text-sm text-gray-600 font-medium">Cancelados</p>
+                      <p className="text-lg sm:text-2xl font-bold text-gray-900">{resumenDelDia.resumen_general.cancelados}</p>
                     </div>
                   </div>
 
                   {/* Montos */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                      <DollarSign className="w-5 h-5 mr-2 text-green-600" />
+                  <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+                    <h4 className="text-sm sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center">
+                      <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-green-600" />
                       Montos del Día
                     </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-2 sm:gap-4">
                       <div>
-                        <p className="text-sm text-gray-600">Total Recaudado (Bruto)</p>
-                        <p className="text-xl font-bold text-green-600">${formatCurrency(calcularBruto(resumenDelDia.montos.total_recaudado))}</p>
-                        <p className="text-xs text-green-700">Neto: ${formatCurrency(resumenDelDia.montos.total_recaudado)}</p>
+                        <p className="text-[10px] sm:text-sm text-gray-600">Recaudado</p>
+                        <p className="text-sm sm:text-xl font-bold text-green-600">${formatCurrency(calcularBruto(resumenDelDia.montos.total_recaudado))}</p>
+                        <p className="text-[10px] sm:text-xs text-green-700 hidden sm:block">Neto: ${formatCurrency(resumenDelDia.montos.total_recaudado)}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Total Pendiente (Bruto)</p>
-                        <p className="text-xl font-bold text-orange-600">${formatCurrency(calcularBruto(resumenDelDia.montos.total_pendiente))}</p>
-                        <p className="text-xs text-orange-700">Neto: ${formatCurrency(resumenDelDia.montos.total_pendiente)}</p>
+                        <p className="text-[10px] sm:text-sm text-gray-600">Pendiente</p>
+                        <p className="text-sm sm:text-xl font-bold text-orange-600">${formatCurrency(calcularBruto(resumenDelDia.montos.total_pendiente))}</p>
+                        <p className="text-[10px] sm:text-xs text-orange-700 hidden sm:block">Neto: ${formatCurrency(resumenDelDia.montos.total_pendiente)}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-600">Descuentos Aplicados</p>
-                        <p className="text-xl font-bold text-purple-600">${formatCurrency(resumenDelDia.montos.total_descuentos)}</p>
+                        <p className="text-[10px] sm:text-sm text-gray-600">Descuentos</p>
+                        <p className="text-sm sm:text-xl font-bold text-purple-600">${formatCurrency(resumenDelDia.montos.total_descuentos)}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Por Vendedor */}
                   {resumenDelDia.por_vendedor && resumenDelDia.por_vendedor.length > 0 && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                        <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
-                        Rendimiento por Vendedor
+                    <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+                      <h4 className="text-sm sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center">
+                        <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-600" />
+                        Por Vendedor
                       </h4>
-                      <div className="overflow-x-auto">
+                      <div className="overflow-x-auto -mx-3 sm:mx-0">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vendedor</th>
-                              <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Vales</th>
-                              <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Completados</th>
-                              <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Pendientes</th>
-                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Monto Total</th>
+                              <th className="px-2 sm:px-4 py-2 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase">Vendedor</th>
+                              <th className="px-2 sm:px-4 py-2 text-center text-[10px] sm:text-xs font-medium text-gray-500 uppercase">Vales</th>
+                              <th className="px-2 sm:px-4 py-2 text-center text-[10px] sm:text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">OK</th>
+                              <th className="px-2 sm:px-4 py-2 text-center text-[10px] sm:text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Pend</th>
+                              <th className="px-2 sm:px-4 py-2 text-right text-[10px] sm:text-xs font-medium text-gray-500 uppercase">Monto</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
                             {resumenDelDia.por_vendedor.map((vendedor, idx) => (
                               <tr key={idx}>
-                                <td className="px-4 py-2 text-sm font-medium text-gray-900">{vendedor.vendedor}</td>
-                                <td className="px-4 py-2 text-center text-sm text-gray-900">{vendedor.cantidad}</td>
-                                <td className="px-4 py-2 text-center text-sm text-green-600">{vendedor.completados}</td>
-                                <td className="px-4 py-2 text-center text-sm text-yellow-600">{vendedor.pendientes}</td>
-                                <td className="px-4 py-2 text-right">
-                                  <div className="text-sm font-bold text-green-700">
+                                <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-900">{vendedor.vendedor}</td>
+                                <td className="px-2 sm:px-4 py-2 text-center text-xs sm:text-sm text-gray-900">{vendedor.cantidad}</td>
+                                <td className="px-2 sm:px-4 py-2 text-center text-xs sm:text-sm text-green-600 hidden sm:table-cell">{vendedor.completados}</td>
+                                <td className="px-2 sm:px-4 py-2 text-center text-xs sm:text-sm text-yellow-600 hidden sm:table-cell">{vendedor.pendientes}</td>
+                                <td className="px-2 sm:px-4 py-2 text-right">
+                                  <div className="text-xs sm:text-sm font-bold text-green-700">
                                     ${formatCurrency(calcularBruto(vendedor.monto_total))}
                                   </div>
-                                  <div className="text-xs text-gray-500">
+                                  <div className="text-[10px] sm:text-xs text-gray-500 hidden sm:block">
                                     Neto: ${formatCurrency(vendedor.monto_total)}
                                   </div>
                                 </td>
@@ -914,10 +914,10 @@ const ReportesModal = ({ isOpen, onClose, onValeSelect, onVerDetalle }) => {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 p-4 bg-gray-50 flex justify-end">
+        <div className="border-t border-gray-200 p-3 sm:p-4 bg-gray-50 flex justify-end">
           <button
             onClick={onClose}
-            className="bg-gray-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-gray-700 transition-colors"
+            className="bg-gray-600 text-white px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium hover:bg-gray-700 transition-colors text-sm sm:text-base"
           >
             Cerrar
           </button>
