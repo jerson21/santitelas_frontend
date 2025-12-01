@@ -46,6 +46,18 @@ const TransferValidationNotifications = () => {
   const [rejectReason, setRejectReason] = useState('');
   const [validationToReject, setValidationToReject] = useState(null);
   
+  // Estados para notificaciones del navegador
+  const [notificationPermission, setNotificationPermission] = useState('default');
+  const notificationPermissionRef = useRef('default');
+  const originalTitleRef = useRef(null);
+  
+  // Guardar título original al montar
+  useEffect(() => {
+    if (!originalTitleRef.current) {
+      originalTitleRef.current = document.title;
+    }
+  }, []);
+  
   // --- LÓGICA DE SONIDO MEJORADA ---
   // Referencia al audio actual para poder pausarlo
   const audioRef = useRef(null);
@@ -87,23 +99,96 @@ const TransferValidationNotifications = () => {
     }
   };
 
-  // --- useEffect DEDICADO PARA EL SONIDO ---
+  // Solicitar permiso para notificaciones del navegador
+  useEffect(() => {
+    if ('Notification' in window) {
+      const permission = Notification.permission;
+      setNotificationPermission(permission);
+      notificationPermissionRef.current = permission;
+      
+      // Si no se ha solicitado permiso, pedirlo automáticamente
+      if (permission === 'default') {
+        Notification.requestPermission().then((perm) => {
+          setNotificationPermission(perm);
+          notificationPermissionRef.current = perm;
+        });
+      }
+    }
+  }, []);
+
+  // --- useEffect DEDICADO PARA EL SONIDO Y NOTIFICACIONES ---
   useEffect(() => {
     const currentCount = validacionesPendientes.length;
     const previousCount = previousCountRef.current;
 
+    // Función para mostrar notificación del navegador
+    const showBrowserNotification = (validacion) => {
+      if (!('Notification' in window)) return;
+      
+      if (Notification.permission === 'granted') {
+        const notification = new Notification('Nueva Transferencia por Validar', {
+          body: `Cliente: ${validacion.cliente || validacion.cliente_nombre || 'Sin especificar'}\nMonto: $${(validacion.monto || 0).toLocaleString('es-CL')}`,
+          icon: '/favicon.ico',
+          badge: '/favicon.ico',
+          tag: `transferencia-${validacion.id}`, // Evita duplicados
+          requireInteraction: false,
+          silent: false
+        });
+
+        // Hacer clic en la notificación para enfocar la ventana
+        notification.onclick = () => {
+          window.focus();
+          setIsExpanded(true);
+          notification.close();
+        };
+
+        // Cerrar automáticamente después de 5 segundos
+        setTimeout(() => {
+          notification.close();
+        }, 5000);
+      }
+    };
+
+    // Función para actualizar el título de la pestaña
+    const updatePageTitle = (count) => {
+      const originalTitle = originalTitleRef.current || 'Santi Telas - Admin';
+      if (count > 0) {
+        document.title = `(${count}) Nueva Transferencia - ${originalTitle}`;
+      } else {
+        document.title = originalTitle;
+      }
+    };
+
     // Si llega una nueva validación (el contador aumentó)
     if (currentCount > previousCount) {
       playNotificationSound();
+      
+      // Mostrar notificación del navegador si hay una nueva validación
+      if (currentCount > 0 && validacionesPendientes.length > 0) {
+        const nuevaValidacion = validacionesPendientes[validacionesPendientes.length - 1];
+        if (nuevaValidacion) {
+          showBrowserNotification(nuevaValidacion);
+        }
+      }
     }
     // Si ya no hay notificaciones, pausamos cualquier sonido que esté reproduciéndose
     else if (currentCount === 0) {
       pauseNotificationSound();
     }
 
+    // Siempre actualizar el título de la pestaña
+    updatePageTitle(currentCount);
+
     // Actualizamos la referencia del contador
     previousCountRef.current = currentCount;
-  }, [validacionesPendientes.length]);
+  }, [validacionesPendientes.length, validacionesPendientes]);
+
+  // Restaurar título original al desmontar
+  useEffect(() => {
+    return () => {
+      document.title = originalTitleRef.current;
+    };
+  }, []);
 
   // Limpiar el audio cuando el componente se desmonte
   useEffect(() => {
