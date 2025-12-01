@@ -1,11 +1,12 @@
 // /src/components/admin/TransferValidationNotifications.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Bell,
   DollarSign,
   Clock,
   CheckCircle,
   XCircle,
+  X,
   AlertCircle,
   ChevronDown,
   ChevronUp,
@@ -39,6 +40,11 @@ const TransferValidationNotifications = () => {
   const [processingId, setProcessingId] = useState(null);
   const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Estados para el modal de motivo de rechazo
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [validationToReject, setValidationToReject] = useState(null);
   
   // --- LÓGICA DE SONIDO MEJORADA ---
   // Referencia al audio actual para poder pausarlo
@@ -152,32 +158,75 @@ const TransferValidationNotifications = () => {
     // Pausar el sonido inmediatamente cuando el usuario interactúa
     pauseNotificationSound();
     
-    setProcessingId(validacion.id);
-    
-    let observaciones = '';
     if (aprobada) {
-        observaciones = `Transferencia validada por ${user.username || user.nombre}`;
+      // Si es aprobación, procesar directamente
+      setProcessingId(validacion.id);
+      const observaciones = `Transferencia validada por ${user.username || user.nombre}`;
+      
+      try {
+        await responderValidacion(validacion.id, true, observaciones);
+        setShowNotification(false);
+        setTimeout(async () => {
+          await actualizarPendientes();
+          setProcessingId(null);
+        }, 500);
+      } catch (error) {
+        console.error('Error al procesar validación:', error);
+        setProcessingId(null);
+      }
     } else {
-        const motivo = prompt('Motivo del rechazo:');
-        if (motivo === null) {
-            setProcessingId(null);
-            return;
-        }
-        observaciones = motivo || `Transferencia rechazada por ${user.username || user.nombre}`;
+      // Si es rechazo, mostrar modal para ingresar motivo
+      setValidationToReject(validacion);
+      setRejectReason('');
+      setShowRejectModal(true);
     }
+  };
+
+  const handleConfirmReject = async () => {
+    if (!validationToReject) return;
+    
+    const motivo = rejectReason.trim() || `Transferencia rechazada por ${user.username || user.nombre}`;
+    setProcessingId(validationToReject.id);
+    setShowRejectModal(false);
     
     try {
-      await responderValidacion(validacion.id, aprobada, observaciones);
+      await responderValidacion(validationToReject.id, false, motivo);
       setShowNotification(false);
       setTimeout(async () => {
         await actualizarPendientes();
         setProcessingId(null);
+        setValidationToReject(null);
+        setRejectReason('');
       }, 500);
     } catch (error) {
-      console.error('Error al procesar validación:', error);
+      console.error('Error al procesar rechazo:', error);
       setProcessingId(null);
+      setValidationToReject(null);
+      setRejectReason('');
     }
   };
+
+  const handleCancelReject = useCallback(() => {
+    setShowRejectModal(false);
+    setValidationToReject(null);
+    setRejectReason('');
+  }, []);
+
+  // Cerrar modal con tecla Escape
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && showRejectModal) {
+        handleCancelReject();
+      }
+    };
+    
+    if (showRejectModal) {
+      document.addEventListener('keydown', handleEscape);
+      return () => {
+        document.removeEventListener('keydown', handleEscape);
+      };
+    }
+  }, [showRejectModal, handleCancelReject]);
 
   const handleActualizar = async () => {
     setIsUpdating(true);
@@ -435,6 +484,88 @@ const TransferValidationNotifications = () => {
             >
               <XCircle className="w-5 h-5" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de motivo de rechazo */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6 animate-in zoom-in duration-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                <XCircle className="w-5 h-5 text-red-600 mr-2" />
+                Motivo del Rechazo
+              </h3>
+              <button
+                onClick={handleCancelReject}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {validationToReject && (
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-sm text-gray-600 mb-1">Cliente:</p>
+                <p className="font-semibold text-gray-800">
+                  {validationToReject.cliente || validationToReject.cliente_nombre || 'Sin especificar'}
+                </p>
+                <p className="text-sm text-gray-600 mb-1 mt-2">Monto:</p>
+                <p className="font-bold text-green-600 text-lg">
+                  ${(validationToReject.monto || 0).toLocaleString('es-CL')}
+                </p>
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label htmlFor="rejectReason" className="block text-sm font-medium text-gray-700 mb-2">
+                Ingresa el motivo del rechazo:
+              </label>
+              <textarea
+                id="rejectReason"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Ej: Monto no coincide, transferencia no recibida, etc."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                rows="4"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.ctrlKey) {
+                    handleConfirmReject();
+                  }
+                }}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Presiona Ctrl + Enter para confirmar rápidamente
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={handleCancelReject}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmReject}
+                disabled={processingId === validationToReject?.id}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {processingId === validationToReject?.id ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Confirmar Rechazo
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
