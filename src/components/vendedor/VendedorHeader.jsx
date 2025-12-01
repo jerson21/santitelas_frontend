@@ -63,37 +63,39 @@ const VendedorHeader = ({ cartItems = [], cartTotal = 0, onRemoveItem, onCreateV
   return (
     <>
       {/* Header Super Simple */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
+      <header className="bg-white shadow-sm border-b sticky top-0 z-40 overflow-x-hidden">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-3">
+          <div className="flex justify-between items-center gap-2">
             {/* Logo */}
-            <h1 className="text-2xl font-bold text-blue-600">Santi Telas</h1>
-            
+            <h1 className="text-lg sm:text-2xl font-bold text-blue-600 flex-shrink-0">Santi Telas</h1>
+
             {/* Controles de Vendedor */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-1 sm:gap-3">
               {/* Botón Reimprimir Últimos Vales */}
               <button
                 onClick={() => setShowUltimosVales(true)}
-                className="p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-colors rounded-xl"
+                className="p-2 sm:p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-colors rounded-xl flex-shrink-0"
                 title="Reimprimir últimos vales"
               >
-                <Printer className="w-6 h-6" />
+                <Printer className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
 
               {/* Botón Carrito Grande */}
               <button
                 onClick={() => setShowCartPanel(true)}
-                className="relative bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium flex items-center space-x-3 min-w-[160px] transition-colors shadow-lg"
+                className="relative bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-6 py-2 sm:py-3 rounded-xl font-medium flex items-center gap-2 sm:gap-3 transition-colors shadow-lg flex-shrink-0"
               >
-                <ShoppingCart className="w-6 h-6" />
+                <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
                 <div className="text-left">
-                  <div className="text-sm opacity-90">Carrito</div>
-                  <div className="font-bold">
-                    {cartItems.length} productos - {formatPrice(cartTotal)}
+                  <div className="text-xs sm:text-sm opacity-90 hidden xs:block">Carrito</div>
+                  <div className="font-bold text-xs sm:text-base whitespace-nowrap">
+                    <span className="hidden sm:inline">{cartItems.length} productos - </span>
+                    <span className="sm:hidden">{cartItems.length} - </span>
+                    {formatPrice(cartTotal)}
                   </div>
                 </div>
                 {cartItems.length > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-sm rounded-full h-7 w-7 flex items-center justify-center font-bold">
+                  <span className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-red-500 text-white text-xs sm:text-sm rounded-full h-5 w-5 sm:h-7 sm:w-7 flex items-center justify-center font-bold">
                     {cartItems.length}
                   </span>
                 )}
@@ -102,10 +104,10 @@ const VendedorHeader = ({ cartItems = [], cartTotal = 0, onRemoveItem, onCreateV
               {/* Botón Logout */}
               <button
                 onClick={handleLogout}
-                className="p-3 text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors rounded-xl"
+                className="p-2 sm:p-3 text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors rounded-xl flex-shrink-0"
                 title="Cerrar sesión"
               >
-                <LogOut className="w-6 h-6" />
+                <LogOut className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
           </div>
