@@ -648,6 +648,54 @@ async actualizarPreciosMasivo(actualizacionData) {
     return await this.request(`/stock/bodega/${bodegaId}`);
   }
 
+  async getStockVariante(varianteId) {
+    return await this.request(`/stock/variante/${varianteId}`);
+  }
+
+  // Entrada de stock (compras, devoluciones)
+  async registrarEntradaStock(data) {
+    return await this.request('/stock/entrada', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Salida de stock (mermas, ajustes negativos)
+  async registrarSalidaStock(data) {
+    return await this.request('/stock/salida', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Ajuste de inventario (toma de stock)
+  async registrarAjusteStock(data) {
+    return await this.request('/stock/ajuste', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Transferencia entre bodegas
+  async transferirStock(data) {
+    return await this.request('/stock/transferencia', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Historial de movimientos
+  async getMovimientosStock(params = {}) {
+    const queryParams = new URLSearchParams(params).toString();
+    return await this.request(`/stock/movimientos${queryParams ? `?${queryParams}` : ''}`);
+  }
+
+  // Productos bajo stock mínimo
+  async getStockBajoMinimo(params = {}) {
+    const queryParams = new URLSearchParams(params).toString();
+    return await this.request(`/stock/bajo-minimo${queryParams ? `?${queryParams}` : ''}`);
+  }
+
   // ===========================
   // USUARIOS ADMIN
   // ===========================
@@ -666,6 +714,54 @@ async actualizarPreciosMasivo(actualizacionData) {
     throw error;
   }
 }
+
+  // ===========================
+  // CLIENTES ADMIN
+  // ===========================
+
+  /**
+   * Obtener lista de clientes con estadísticas
+   */
+  async getClientesAdmin() {
+    return await this.request('/admin/clientes');
+  }
+
+  /**
+   * Obtener detalle de un cliente
+   */
+  async getClienteDetalleAdmin(clienteId) {
+    return await this.request(`/admin/clientes/${clienteId}`);
+  }
+
+  /**
+   * Crear nuevo cliente
+   */
+  async createClienteAdmin(clienteData) {
+    return await this.request('/admin/clientes', {
+      method: 'POST',
+      body: JSON.stringify(clienteData),
+    });
+  }
+
+  /**
+   * Actualizar cliente existente
+   */
+  async updateClienteAdmin(clienteId, clienteData) {
+    return await this.request(`/admin/clientes/${clienteId}`, {
+      method: 'PUT',
+      body: JSON.stringify(clienteData),
+    });
+  }
+
+  /**
+   * Activar/Desactivar cliente
+   */
+  async toggleClienteAdmin(clienteId, activo) {
+    return await this.request(`/admin/clientes/${clienteId}/activar`, {
+      method: 'PATCH',
+      body: JSON.stringify({ activo }),
+    });
+  }
 
 
 

@@ -20,6 +20,12 @@ import {
 import ApiService from '../../services/api';
 import UsuariosAdmin from './UsuariosAdmin';
 import ProductosAdmin from './ProductosAdmin';
+import CategoriasAdmin from './CategoriasAdmin';
+import BodegasAdmin from './BodegasAdmin';
+import StockAdmin from './StockAdmin';
+import MovimientosStock from './MovimientosStock';
+import MorosidadesAdmin from './MorosidadesAdmin';
+import ClientesAdmin from './ClientesAdmin';
 import TransferValidationNotifications from './TransferValidationNotifications';
 
 
@@ -32,10 +38,35 @@ const AdminDashboard = () => {
     valesPendientes: { total: 0, loading: true }
   });
   
-  const [currentView, setCurrentView] = useState('dashboard');
+  // Leer la vista inicial desde el hash de la URL
+  const getInitialView = () => {
+    const hash = window.location.hash.replace('#', '');
+    const validViews = ['dashboard', 'usuarios', 'productos', 'categorias', 'bodegas', 'stock', 'movimientos', 'morosidades', 'clientes'];
+    return validViews.includes(hash) ? hash : 'dashboard';
+  };
+
+  const [currentView, setCurrentView] = useState(getInitialView);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
+
+  // Sincronizar el hash de la URL con la vista actual
+  useEffect(() => {
+    window.location.hash = currentView;
+  }, [currentView]);
+
+  // Escuchar cambios en el hash (navegación con botones atrás/adelante)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      const validViews = ['dashboard', 'usuarios', 'productos', 'categorias', 'bodegas', 'stock', 'movimientos', 'morosidades', 'clientes'];
+      if (validViews.includes(hash) && hash !== currentView) {
+        setCurrentView(hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [currentView]);
 
   // Módulos disponibles con sus configuraciones
   const adminModules = [    
@@ -69,7 +100,8 @@ const AdminDashboard = () => {
       color: 'bg-indigo-600 hover:bg-indigo-700',
       endpoint: '/categorias',
       actions: ['view', 'create', 'edit'],
-      comingSoon: false
+      comingSoon: false,
+      component: CategoriasAdmin
     },
     {
       id: 'bodegas',
@@ -79,7 +111,8 @@ const AdminDashboard = () => {
       color: 'bg-purple-600 hover:bg-purple-700',
       endpoint: '/bodegas',
       actions: ['view', 'create', 'edit'],
-      comingSoon: false
+      comingSoon: false,
+      component: BodegasAdmin
     },
     {
       id: 'stock',
@@ -89,14 +122,48 @@ const AdminDashboard = () => {
       color: 'bg-teal-600 hover:bg-teal-700',
       endpoint: '/stock',
       actions: ['view'],
-      comingSoon: false
+      comingSoon: false,
+      component: StockAdmin
+    },
+    {
+      id: 'movimientos',
+      title: 'Historial de Movimientos',
+      description: 'Ver registro de entradas, salidas y transferencias',
+      icon: Clock,
+      color: 'bg-indigo-600 hover:bg-indigo-700',
+      endpoint: '/stock/movimientos',
+      actions: ['view'],
+      comingSoon: false,
+      component: MovimientosStock
+    },
+    {
+      id: 'morosidades',
+      title: 'Morosidades y Cobranzas',
+      description: 'Control de vales pendientes, cobrados y deudas de clientes',
+      icon: AlertTriangle,
+      color: 'bg-orange-600 hover:bg-orange-700',
+      endpoint: '/cajero/reportes',
+      actions: ['view'],
+      comingSoon: false,
+      component: MorosidadesAdmin
+    },
+    {
+      id: 'clientes',
+      title: 'Gestión de Clientes',
+      description: 'Administrar datos de clientes y facturación',
+      icon: Users,
+      color: 'bg-cyan-600 hover:bg-cyan-700',
+      endpoint: '/admin/clientes',
+      actions: ['view', 'create', 'edit'],
+      comingSoon: false,
+      component: ClientesAdmin
     },
     {
       id: 'reportes',
       title: 'Reportes y Estadísticas',
       description: 'Visualizar métricas y generar reportes',
       icon: BarChart3,
-      color: 'bg-orange-600 hover:bg-orange-700',
+      color: 'bg-amber-600 hover:bg-amber-700',
       endpoint: null,
       actions: [],
       comingSoon: true
@@ -374,7 +441,15 @@ const AdminDashboard = () => {
     // Si el módulo tiene un componente personalizado, renderizarlo
     if (module.component) {
       const Component = module.component;
-      return <Component />;
+      // Props especiales para ciertos componentes
+      const componentProps = {};
+      if (module.id === 'stock') {
+        componentProps.onOpenMovimientos = () => setCurrentView('movimientos');
+      }
+      if (module.id === 'movimientos') {
+        componentProps.onBack = () => setCurrentView('stock');
+      }
+      return <Component {...componentProps} />;
     }
 
     // Renderizado genérico para módulos sin componente personalizado
@@ -472,14 +547,12 @@ const AdminDashboard = () => {
                 <h1 className="text-xl font-semibold text-gray-800">Santi Telas - Admin</h1>
               </div>
               <div className="flex items-center space-x-4">
-                {currentView === 'usuarios' && (
-                  <button
-                    onClick={handleBackToDashboard}
-                    className="flex items-center px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    ← Volver al Dashboard
-                  </button>
-                )}
+                <button
+                  onClick={handleBackToDashboard}
+                  className="flex items-center px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  ← Volver al Dashboard
+                </button>
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
                   <User className="w-4 h-4" />
                   <span>{userInfo?.nombre || 'Admin'}</span>

@@ -3,7 +3,7 @@ import {
   Package, Search, Filter, Plus, Edit2, DollarSign, Eye, Upload, RefreshCw, ChevronDown,
   ChevronRight, MoreVertical, AlertCircle, Check, X, FileSpreadsheet, Layers, Tag,
   BarChart3, Loader2, Save, Trash2, Copy, ShoppingCart, Palette, Ruler, Box, Info,
-  AlertTriangle, Download
+  AlertTriangle, Download, Warehouse
 } from 'lucide-react';
 
 import ApiService from '../../services/api'; 
@@ -89,6 +89,11 @@ const ProductosAdmin = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  // Estados para modal de stock detallado
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [stockDetalleData, setStockDetalleData] = useState(null);
+  const [loadingStock, setLoadingStock] = useState(false);
 
   const cargarDatos = useCallback(async () => {
     setLoading(true);
@@ -220,6 +225,31 @@ const ProductosAdmin = () => {
     } catch (error) {
       console.error('Error guardando variante:', error);
       throw error;
+    }
+  };
+
+  // ===========================
+  // 📦 VER STOCK DETALLADO
+  // ===========================
+  const handleVerStock = async (producto) => {
+    setLoadingStock(true);
+    setShowStockModal(true);
+    setStockDetalleData(null);
+    try {
+      console.log('Cargando stock para producto:', producto.id_producto);
+      const response = await ApiService.getStockProducto(producto.id_producto);
+      console.log('Respuesta stock:', response);
+      if (response?.success && response?.data) {
+        setStockDetalleData(response.data);
+      } else {
+        console.error('Error cargando stock:', response?.message || 'Sin datos');
+        setStockDetalleData({ error: response?.message || 'Error al cargar datos' });
+      }
+    } catch (error) {
+      console.error('Error cargando stock del producto:', error);
+      setStockDetalleData({ error: error.message || 'Error de conexión' });
+    } finally {
+      setLoadingStock(false);
     }
   };
 
@@ -586,6 +616,16 @@ const ProductosAdmin = () => {
                             >
                               <Plus size={14} className="text-gray-600" />
                             </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleVerStock(producto);
+                              }}
+                              className="p-1 hover:bg-purple-100 rounded"
+                              title="Ver stock por bodega"
+                            >
+                              <Warehouse size={14} className="text-purple-600" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -809,6 +849,143 @@ const ProductosAdmin = () => {
         onSave={handleGuardarVariante}
         producto={productoEditar}
       />
+
+      {/* Modal de Stock Detallado */}
+      {showStockModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="bg-purple-600 text-white px-6 py-4 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <Warehouse className="w-6 h-6" />
+                <div>
+                  <h2 className="text-lg font-semibold">Stock por Bodega</h2>
+                  {stockDetalleData?.producto && (
+                    <p className="text-purple-200 text-sm">{stockDetalleData.producto.modelo}</p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowStockModal(false);
+                  setStockDetalleData(null);
+                }}
+                className="p-1 hover:bg-purple-500 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {loadingStock ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+                  <span className="ml-3 text-gray-600">Cargando stock...</span>
+                </div>
+              ) : stockDetalleData && !stockDetalleData.error ? (
+                <div className="space-y-4">
+                  {/* Resumen general */}
+                  <div className="bg-purple-50 rounded-lg p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-purple-600">Stock Total del Producto</p>
+                      <p className="text-2xl font-bold text-purple-800">
+                        {stockDetalleData.stock_total_producto?.toFixed(0) || 0}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500">{stockDetalleData.variantes?.length || 0} variantes</p>
+                      <p className="text-sm text-gray-500">{stockDetalleData.bodegas?.length || 0} bodegas</p>
+                    </div>
+                  </div>
+
+                  {/* Tabla de stock por variante */}
+                  {stockDetalleData.variantes?.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-100">
+                          <tr>
+                            <th className="text-left px-3 py-2 font-medium text-gray-700">Variante</th>
+                            {stockDetalleData.bodegas?.map(b => (
+                              <th key={b.id_bodega} className="text-center px-3 py-2 font-medium text-gray-700">
+                                {b.nombre}
+                              </th>
+                            ))}
+                            <th className="text-center px-3 py-2 font-medium text-purple-700 bg-purple-100">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {stockDetalleData.variantes.map(variante => (
+                            <tr key={variante.id_variante} className="hover:bg-gray-50">
+                              <td className="px-3 py-3">
+                                <div>
+                                  <p className="font-medium text-gray-800">{variante.descripcion || 'Sin descripción'}</p>
+                                  <p className="text-xs text-gray-500 font-mono">{variante.sku}</p>
+                                </div>
+                              </td>
+                              {variante.stock_bodegas?.map(stock => (
+                                <td key={stock.id_bodega} className="text-center px-3 py-3">
+                                  <span className={`inline-block min-w-[40px] px-2 py-1 rounded ${
+                                    stock.cantidad_disponible > 0
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-gray-100 text-gray-400'
+                                  }`}>
+                                    {stock.cantidad_disponible?.toFixed(0) || 0}
+                                  </span>
+                                </td>
+                              ))}
+                              <td className="text-center px-3 py-3 bg-purple-50">
+                                <span className="font-bold text-purple-700">
+                                  {variante.stock_total?.toFixed(0) || 0}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        {/* Footer con totales por bodega */}
+                        <tfoot className="bg-gray-100 font-medium">
+                          <tr>
+                            <td className="px-3 py-2 text-gray-700">Total por Bodega</td>
+                            {stockDetalleData.bodegas?.map(bodega => {
+                              const totalBodega = stockDetalleData.variantes.reduce((sum, v) => {
+                                const stockBodega = v.stock_bodegas?.find(s => s.id_bodega === bodega.id_bodega);
+                                return sum + (stockBodega?.cantidad_disponible || 0);
+                              }, 0);
+                              return (
+                                <td key={bodega.id_bodega} className="text-center px-3 py-2">
+                                  <span className="font-bold">{totalBodega.toFixed(0)}</span>
+                                </td>
+                              );
+                            })}
+                            <td className="text-center px-3 py-2 bg-purple-100">
+                              <span className="font-bold text-purple-700">
+                                {stockDetalleData.stock_total_producto?.toFixed(0) || 0}
+                              </span>
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p>Este producto no tiene variantes registradas</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <AlertCircle className="w-12 h-12 mx-auto mb-3 text-red-300" />
+                  <p>Error al cargar el stock del producto</p>
+                  {stockDetalleData?.error && (
+                    <p className="text-sm text-red-400 mt-2">{stockDetalleData.error}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Importación */}
       {showImportModal && (
