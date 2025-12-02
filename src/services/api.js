@@ -763,6 +763,18 @@ async actualizarPreciosMasivo(actualizacionData) {
     });
   }
 
+  /**
+   * Importar clientes masivamente
+   * @param {Array} clientes - Array de objetos cliente
+   * @param {string} modo - 'solo_crear' | 'solo_actualizar' | 'crear_actualizar'
+   */
+  async importarClientesAdmin(clientes, modo = 'crear_actualizar') {
+    return await this.request('/admin/clientes/importar', {
+      method: 'POST',
+      body: JSON.stringify({ clientes, modo }),
+    });
+  }
+
 
 
 
