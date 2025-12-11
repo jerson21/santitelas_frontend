@@ -26,7 +26,10 @@ import {
   Percent,
   Clock,
   FileSpreadsheet,
-  ChevronRight
+  ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import apiService from '../../services/api';
 import * as XLSX from 'xlsx';
@@ -37,6 +40,18 @@ const ClientesAdmin = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [filtroActivo, setFiltroActivo] = useState('todos');
+
+  // Estado de paginación
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    pages: 0
+  });
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Ref para scroll a la tabla
+  const tableRef = useRef(null);
 
   // Modal de crear/editar
   const [showModal, setShowModal] = useState(false);
@@ -91,22 +106,65 @@ const ClientesAdmin = () => {
     };
   }
 
+  // Debounce para búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Cargar clientes cuando cambian los filtros o la página
   useEffect(() => {
     cargarClientes();
-  }, []);
+  }, [pagination.page, pagination.limit, debouncedSearch, filtroActivo]);
 
-  const cargarClientes = async () => {
+  const cargarClientes = async (resetPage = false) => {
     setLoading(true);
     try {
-      const response = await apiService.getClientesAdmin();
+      const page = resetPage ? 1 : pagination.page;
+      const params = {
+        page,
+        limit: pagination.limit,
+      };
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (filtroActivo === 'activos') params.activo = true;
+      if (filtroActivo === 'inactivos') params.activo = false;
+
+      const response = await apiService.getClientesAdmin(params);
       if (response.success) {
         setClientes(response.data || []);
+        if (response.pagination) {
+          setPagination(prev => ({
+            ...prev,
+            ...response.pagination,
+            page: resetPage ? 1 : response.pagination.page
+          }));
+        }
       }
     } catch (error) {
       console.error('Error cargando clientes:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Funciones de paginación
+  const goToPage = (page) => {
+    if (page >= 1 && page <= pagination.pages) {
+      setPagination(prev => ({ ...prev, page }));
+      // Scroll suave a la tabla
+      setTimeout(() => {
+        tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  };
+
+  const handleLimitChange = (newLimit) => {
+    setPagination(prev => ({ ...prev, limit: newLimit, page: 1 }));
+    setTimeout(() => {
+      tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   const handleOpenCreate = () => {
@@ -220,7 +278,18 @@ const ClientesAdmin = () => {
     setLoadingVales(true);
     try {
       const response = await apiService.getValesCliente(cliente.rut);
-      setValesCliente(response.success ? response.data || [] : []);
+      if (response.success && response.data) {
+        // Combinar pendientes y pagados, agregando el estado a cada uno
+        const pendientes = (response.data.pendientes || []).map(v => ({ ...v, estado: 'pendiente' }));
+        const pagados = (response.data.pagados || []).map(v => ({ ...v, estado: 'completado' }));
+        // Ordenar por fecha más reciente primero
+        const todos = [...pendientes, ...pagados].sort((a, b) =>
+          new Date(b.fecha_creacion) - new Date(a.fecha_creacion)
+        );
+        setValesCliente(todos);
+      } else {
+        setValesCliente([]);
+      }
     } catch (error) {
       setValesCliente([]);
     } finally {
@@ -350,49 +419,135 @@ const ClientesAdmin = () => {
     return `${formateado}-${dv.toUpperCase()}`;
   };
 
+  // Filtrado local solo por tipo (búsqueda y activo se hacen en servidor)
   const clientesFiltrados = clientes.filter(cliente => {
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      const match = cliente.rut?.toLowerCase().includes(term) ||
-        cliente.nombre?.toLowerCase().includes(term) ||
-        cliente.razon_social?.toLowerCase().includes(term) ||
-        cliente.nombre_fantasia?.toLowerCase().includes(term) ||
-        cliente.codigo_cliente?.toLowerCase().includes(term);
-      if (!match) return false;
-    }
     if (filtroTipo !== 'todos' && cliente.tipo_cliente !== filtroTipo) return false;
-    if (filtroActivo === 'activos' && !cliente.activo) return false;
-    if (filtroActivo === 'inactivos' && cliente.activo) return false;
     return true;
   });
 
   const stats = {
-    total: clientes.length,
+    total: pagination.total || clientes.length,
     personas: clientes.filter(c => c.tipo_cliente === 'persona').length,
     empresas: clientes.filter(c => c.tipo_cliente === 'empresa').length,
     activos: clientes.filter(c => c.activo).length
   };
 
+  // Componente de paginación
+  const PaginationComponent = () => {
+    if (pagination.pages <= 1) return null;
+
+    const getPageNumbers = () => {
+      const pages = [];
+      const maxVisible = window.innerWidth < 640 ? 3 : 5;
+      let start = Math.max(1, pagination.page - Math.floor(maxVisible / 2));
+      let end = Math.min(pagination.pages, start + maxVisible - 1);
+
+      if (end - start + 1 < maxVisible) {
+        start = Math.max(1, end - maxVisible + 1);
+      }
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      return pages;
+    };
+
+    return (
+      <div className="flex flex-col sm:flex-row items-center justify-between px-3 sm:px-4 py-3 bg-white border-t border-gray-200 gap-3">
+        <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-start">
+          <span className="text-xs sm:text-sm text-gray-700">
+            <span className="hidden sm:inline">Mostrando </span>
+            <span className="font-medium">{((pagination.page - 1) * pagination.limit) + 1}</span>-
+            <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span>
+            <span className="hidden sm:inline"> de</span>
+            <span className="sm:hidden">/</span>
+            <span className="font-medium"> {pagination.total}</span>
+          </span>
+          <select
+            value={pagination.limit}
+            onChange={(e) => handleLimitChange(Number(e.target.value))}
+            className="px-2 py-1 border border-gray-300 rounded text-xs sm:text-sm"
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => goToPage(1)}
+            disabled={pagination.page === 1}
+            className="p-1 sm:p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Primera página"
+          >
+            <ChevronsLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => goToPage(pagination.page - 1)}
+            disabled={pagination.page === 1}
+            className="p-1 sm:p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Página anterior"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          {getPageNumbers().map(pageNum => (
+            <button
+              key={pageNum}
+              onClick={() => goToPage(pageNum)}
+              className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm ${
+                pageNum === pagination.page
+                  ? 'bg-blue-600 text-white'
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
+            >
+              {pageNum}
+            </button>
+          ))}
+
+          <button
+            onClick={() => goToPage(pagination.page + 1)}
+            disabled={pagination.page === pagination.pages}
+            className="p-1 sm:p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Página siguiente"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => goToPage(pagination.pages)}
+            disabled={pagination.page === pagination.pages}
+            className="p-1 sm:p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Última página"
+          >
+            <ChevronsRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // Componente de tabs para el formulario
   const FormTabs = () => (
-    <div className="flex border-b border-gray-200 mb-4">
+    <div className="flex border-b border-gray-200 mb-4 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
       {[
-        { id: 'basicos', label: 'Datos Básicos', icon: User },
-        { id: 'facturacion', label: 'Facturación', icon: FileText },
-        { id: 'contactos', label: 'Contactos', icon: Phone },
-        { id: 'credito', label: 'Crédito', icon: CreditCard }
+        { id: 'basicos', label: 'Básicos', labelFull: 'Datos Básicos', icon: User },
+        { id: 'facturacion', label: 'Fact.', labelFull: 'Facturación', icon: FileText },
+        { id: 'contactos', label: 'Cont.', labelFull: 'Contactos', icon: Phone },
+        { id: 'credito', label: 'Crédito', labelFull: 'Crédito', icon: CreditCard }
       ].map(tab => (
         <button
           key={tab.id}
           onClick={() => setActiveTab(tab.id)}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
             activeTab === tab.id
               ? 'border-blue-500 text-blue-600'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
           <tab.icon className="w-4 h-4" />
-          {tab.label}
+          <span className="sm:hidden">{tab.label}</span>
+          <span className="hidden sm:inline">{tab.labelFull}</span>
         </button>
       ))}
     </div>
@@ -403,54 +558,54 @@ const ClientesAdmin = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-3">
-          <Users className="w-8 h-8 text-cyan-600" />
+          <Users className="w-6 sm:w-8 h-6 sm:h-8 text-cyan-600" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Gestión de Clientes</h1>
-            <p className="text-sm text-gray-500">Administrar datos de clientes y facturación</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Gestión de Clientes</h1>
+            <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">Administrar datos de clientes y facturación</p>
           </div>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => { setShowImportModal(true); setImportData([]); setImportPreview([]); setImportResult(null); }}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            className="flex items-center gap-2 px-2 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
           >
             <Upload className="w-4 h-4" />
-            Importar Excel
+            <span className="hidden sm:inline">Importar Excel</span>
           </button>
-          <button onClick={cargarClientes} className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+          <button onClick={cargarClientes} className="flex items-center gap-2 px-2 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button onClick={handleOpenCreate} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <button onClick={handleOpenCreate} className="flex items-center gap-2 px-2 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             <Plus className="w-4 h-4" />
-            Nuevo Cliente
+            <span className="hidden sm:inline">Nuevo Cliente</span>
           </button>
         </div>
       </div>
 
       {/* Estadísticas */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-600 font-medium">Total</p>
-          <p className="text-2xl font-bold text-blue-900">{stats.total}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-blue-600 font-medium">Total</p>
+          <p className="text-xl sm:text-2xl font-bold text-blue-900">{stats.total}</p>
         </div>
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <p className="text-sm text-green-600 font-medium">Personas</p>
-          <p className="text-2xl font-bold text-green-900">{stats.personas}</p>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-green-600 font-medium">Personas</p>
+          <p className="text-xl sm:text-2xl font-bold text-green-900">{stats.personas}</p>
         </div>
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <p className="text-sm text-purple-600 font-medium">Empresas</p>
-          <p className="text-2xl font-bold text-purple-900">{stats.empresas}</p>
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-purple-600 font-medium">Empresas</p>
+          <p className="text-xl sm:text-2xl font-bold text-purple-900">{stats.empresas}</p>
         </div>
-        <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
-          <p className="text-sm text-teal-600 font-medium">Activos</p>
-          <p className="text-2xl font-bold text-teal-900">{stats.activos}</p>
+        <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-teal-600 font-medium">Activos</p>
+          <p className="text-xl sm:text-2xl font-bold text-teal-900">{stats.activos}</p>
         </div>
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex-1 min-w-[250px] relative">
+      <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
+          <div className="flex-1 min-w-0 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
@@ -465,7 +620,7 @@ const ClientesAdmin = () => {
               <button
                 key={tipo}
                 onClick={() => setFiltroTipo(tipo)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                className={`px-2 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium ${
                   filtroTipo === tipo ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
                 }`}
               >
@@ -476,7 +631,7 @@ const ClientesAdmin = () => {
           <select
             value={filtroActivo}
             onChange={(e) => setFiltroActivo(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg"
+            className="px-2 sm:px-3 py-2 border border-gray-300 rounded-lg text-sm"
           >
             <option value="todos">Todos</option>
             <option value="activos">Activos</option>
@@ -486,97 +641,108 @@ const ClientesAdmin = () => {
       </div>
 
       {/* Tabla */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div ref={tableRef} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contacto</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Crédito</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {clientesFiltrados.map(cliente => (
-                  <tr key={cliente.id_cliente} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          cliente.tipo_cliente === 'empresa' ? 'bg-purple-100' : 'bg-blue-100'
-                        }`}>
-                          {cliente.tipo_cliente === 'empresa' ? (
-                            <Building2 className="w-5 h-5 text-purple-600" />
-                          ) : (
-                            <User className="w-5 h-5 text-blue-600" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {cliente.nombre_fantasia || cliente.razon_social || cliente.nombre || 'Sin nombre'}
-                          </p>
-                          <p className="text-sm text-gray-500">{formatRut(cliente.rut)}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {cliente.codigo_cliente || '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm">
-                        {cliente.telefono && <div className="flex items-center gap-1 text-gray-600"><Phone className="w-3 h-3" />{cliente.telefono}</div>}
-                        {cliente.email && <div className="flex items-center gap-1 text-gray-600 truncate max-w-[200px]"><Mail className="w-3 h-3" />{cliente.email}</div>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm">
-                        {cliente.linea_credito > 0 && (
-                          <div className="text-green-600 font-medium">${formatCurrency(cliente.linea_credito)}</div>
-                        )}
-                        {cliente.descuento_default > 0 && (
-                          <div className="text-blue-600">{cliente.descuento_default}% dto</div>
-                        )}
-                        {cliente.dias_credito > 0 && (
-                          <div className="text-gray-500 text-xs">{cliente.dias_credito} días</div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        cliente.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {cliente.activo ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => handleVerDetalle(cliente)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Ver">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleOpenEdit(cliente)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded" title="Editar">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleToggleActivo(cliente)}
-                          className={`p-1.5 rounded ${cliente.activo ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
-                          title={cliente.activo ? 'Desactivar' : 'Activar'}
-                        >
-                          {cliente.activo ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contacto</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Crédito</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {clientesFiltrados.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                        No se encontraron clientes
+                      </td>
+                    </tr>
+                  ) : (
+                    clientesFiltrados.map(cliente => (
+                      <tr key={cliente.id_cliente} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              cliente.tipo_cliente === 'empresa' ? 'bg-purple-100' : 'bg-blue-100'
+                            }`}>
+                              {cliente.tipo_cliente === 'empresa' ? (
+                                <Building2 className="w-5 h-5 text-purple-600" />
+                              ) : (
+                                <User className="w-5 h-5 text-blue-600" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {cliente.nombre_fantasia || cliente.razon_social || cliente.nombre || 'Sin nombre'}
+                              </p>
+                              <p className="text-sm text-gray-500">{formatRut(cliente.rut)}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {cliente.codigo_cliente || '-'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm">
+                            {cliente.telefono && <div className="flex items-center gap-1 text-gray-600"><Phone className="w-3 h-3" />{cliente.telefono}</div>}
+                            {cliente.email && <div className="flex items-center gap-1 text-gray-600 truncate max-w-[200px]"><Mail className="w-3 h-3" />{cliente.email}</div>}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm">
+                            {cliente.linea_credito > 0 && (
+                              <div className="text-green-600 font-medium">${formatCurrency(cliente.linea_credito)}</div>
+                            )}
+                            {cliente.descuento_default > 0 && (
+                              <div className="text-blue-600">{cliente.descuento_default}% dto</div>
+                            )}
+                            {cliente.dias_credito > 0 && (
+                              <div className="text-gray-500 text-xs">{cliente.dias_credito} días</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            cliente.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {cliente.activo ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-center gap-1">
+                            <button onClick={() => handleVerDetalle(cliente)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Ver">
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleOpenEdit(cliente)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded" title="Editar">
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleToggleActivo(cliente)}
+                              className={`p-1.5 rounded ${cliente.activo ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
+                              title={cliente.activo ? 'Desactivar' : 'Activar'}
+                            >
+                              {cliente.activo ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <PaginationComponent />
+          </>
         )}
       </div>
 
@@ -622,7 +788,7 @@ const ClientesAdmin = () => {
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">RUT *</label>
                       <input
@@ -682,7 +848,7 @@ const ClientesAdmin = () => {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                       <input
@@ -739,7 +905,7 @@ const ClientesAdmin = () => {
                     />
                     {formErrors.direccion && <p className="text-red-500 text-sm mt-1">{formErrors.direccion}</p>}
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
                       <input
@@ -767,7 +933,7 @@ const ClientesAdmin = () => {
               {activeTab === 'contactos' && (
                 <div className="space-y-4">
                   <h4 className="font-medium text-gray-700 flex items-center gap-2"><DollarSign className="w-4 h-4" /> Contacto de Pago</h4>
-                  <div className="grid grid-cols-3 gap-4 pl-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pl-0 sm:pl-4">
                     <input type="text" placeholder="Nombre contacto" value={formData.contacto_pago}
                       onChange={(e) => setFormData({ ...formData, contacto_pago: e.target.value })}
                       className="px-3 py-2 border border-gray-300 rounded-lg" />
@@ -780,7 +946,7 @@ const ClientesAdmin = () => {
                   </div>
 
                   <h4 className="font-medium text-gray-700 flex items-center gap-2 mt-4"><ShoppingCart className="w-4 h-4" /> Contacto Comercial</h4>
-                  <div className="grid grid-cols-2 gap-4 pl-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-0 sm:pl-4">
                     <input type="text" placeholder="Nombre contacto" value={formData.contacto_comercial}
                       onChange={(e) => setFormData({ ...formData, contacto_comercial: e.target.value })}
                       className="px-3 py-2 border border-gray-300 rounded-lg" />
@@ -794,7 +960,7 @@ const ClientesAdmin = () => {
               {/* Tab: Crédito */}
               {activeTab === 'credito' && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Descuento por defecto (%)</label>
                       <input type="number" min="0" max="100" step="0.5" value={formData.descuento_default}
@@ -808,7 +974,7 @@ const ClientesAdmin = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Días de crédito</label>
                       <input type="number" min="0" value={formData.dias_credito}
@@ -828,7 +994,7 @@ const ClientesAdmin = () => {
                       </select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Lista de precios</label>
                       <input type="text" value={formData.lista_precios}
@@ -887,19 +1053,19 @@ const ClientesAdmin = () => {
             </div>
 
             <div className="p-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-700 mb-2 flex items-center gap-2"><FileText className="w-4 h-4" /> Facturación</h4>
-                  <div className="space-y-1 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-700 mb-2 flex items-center gap-2 text-sm sm:text-base"><FileText className="w-4 h-4" /> Facturación</h4>
+                  <div className="space-y-1 text-xs sm:text-sm">
                     {clienteDetalle.giro && <p><span className="text-gray-500">Giro:</span> {clienteDetalle.giro}</p>}
                     {clienteDetalle.direccion && <p><span className="text-gray-500">Dirección:</span> {clienteDetalle.direccion}</p>}
                     {clienteDetalle.comuna && <p><span className="text-gray-500">Comuna:</span> {clienteDetalle.comuna}</p>}
                     {clienteDetalle.ciudad && <p><span className="text-gray-500">Ciudad:</span> {clienteDetalle.ciudad}</p>}
                   </div>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-700 mb-2 flex items-center gap-2"><CreditCard className="w-4 h-4" /> Crédito</h4>
-                  <div className="space-y-1 text-sm">
+                <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-700 mb-2 flex items-center gap-2 text-sm sm:text-base"><CreditCard className="w-4 h-4" /> Crédito</h4>
+                  <div className="space-y-1 text-xs sm:text-sm">
                     <p><span className="text-gray-500">Línea:</span> ${formatCurrency(clienteDetalle.linea_credito)}</p>
                     <p><span className="text-gray-500">Descuento:</span> {clienteDetalle.descuento_default || 0}%</p>
                     <p><span className="text-gray-500">Días:</span> {clienteDetalle.dias_credito || 0}</p>

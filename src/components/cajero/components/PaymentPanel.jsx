@@ -4,13 +4,15 @@ import {
   DollarSign,
   CreditCard,
   Receipt,
-  FileText
+  FileText,
+  Printer
 } from 'lucide-react';
 import PaymentAmountModal from './PaymentAmountModal';
 import ValidacionTransferencia from './ValidacionTransferencia';
 import FacturacionModal from './FacturacionModal';
 import { filterEmptyFields } from '../utils/validators';
 import apiService from '../../../services/api';
+import printService from '../../../services/printService';
 import { useSocket } from '../../../hooks/useSocket';
 
 const PaymentPanel = ({ vale, onSuccess, showToast, turnoAbierto, productosAfectosDescuento = {} }) => {
@@ -19,6 +21,7 @@ const PaymentPanel = ({ vale, onSuccess, showToast, turnoAbierto, productosAfect
   const [showFacturacionModal, setShowFacturacionModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [transferData, setTransferData] = useState(null);
+  const [printServerAvailable, setPrintServerAvailable] = useState(false);
   const [paymentData, setPaymentData] = useState({
     tipo_documento: 'boleta',
     metodo_pago: 'EFE',
@@ -39,6 +42,20 @@ const PaymentPanel = ({ vale, onSuccess, showToast, turnoAbierto, productosAfect
       id: localStorage.getItem('usuario_id')
     };
     joinRoom('cajero', cajeroData);
+
+    // Verificar si el servidor de impresión está disponible
+    const checkPrintServer = async () => {
+      const available = await printService.checkConnection();
+      setPrintServerAvailable(available);
+      if (available) {
+        console.log('🖨️ Servidor de impresión conectado');
+      }
+    };
+    checkPrintServer();
+
+    // Verificar cada 30 segundos
+    const interval = setInterval(checkPrintServer, 30000);
+    return () => clearInterval(interval);
   }, [joinRoom]);
 
   // Cuentas para transferencia
@@ -283,6 +300,7 @@ const PaymentPanel = ({ vale, onSuccess, showToast, turnoAbierto, productosAfect
       const resp = await apiService.procesarVale(vale.numero, datosVenta);
 
       if (resp.success) {
+        const numeroVenta = resp.data?.numero_venta;
         const totalConIva = calcularTotal();
         const vuelto = montoRecibido - totalConIva;
         let mensaje = `✅ Pago procesado correctamente: vale ${vale.numero}`;
@@ -290,28 +308,140 @@ const PaymentPanel = ({ vale, onSuccess, showToast, turnoAbierto, productosAfect
         if (paymentData.metodo_pago === 'EFE' && vuelto > 0) {
           mensaje += `\n💰 Vuelto entregado: $${vuelto.toLocaleString('es-CL')}`;
         }
-        
+
         const metodosTexto = {
           'EFE': 'Efectivo',
           'TAR': 'Tarjeta',
           'TRA': 'Transferencia'
         };
         mensaje += `\n💳 Método: ${metodosTexto[paymentData.metodo_pago]}`;
-        
+
         if (paymentData.metodo_pago === 'TRA' && paymentData.cuenta_transferencia) {
           const cuenta = cuentasTransferencia.find(c => c.id === paymentData.cuenta_transferencia);
           if (cuenta) {
             mensaje += ` (${cuenta.nombre})`;
           }
         }
-        
+
         if (vale.es_vale_antiguo) {
           mensaje += `\n⚠️ Nota: Era un vale de hace ${vale.dias_atras} días`;
         }
 
+        // =========================================
+        // EMISIÓN DE DTE (Boleta o Factura Electrónica)
+        // =========================================
+        let folioDTE = null;
+        let modoPruebaDTE = false;
+        let timbreTED = null;
+
+        // Solo emitir DTE si es boleta o factura (no para ticket)
+        if (paymentData.tipo_documento === 'boleta' || paymentData.tipo_documento === 'factura') {
+          try {
+            console.log('🧾 Iniciando emisión de DTE...');
+
+            // Preparar productos para DTE (formato Relbase)
+            // product_id: 0 indica producto genérico (no registrado en Relbase)
+            const productosParaDTE = vale.productos.map(p => ({
+              product_id: 0, // Producto genérico
+              name: p.descripcion_completa || p.producto || p.nombre || 'Producto',
+              code: p.codigo || p.sku || '',
+              price: Math.round(p.precio_unitario * 1.19), // Precio con IVA
+              quantity: p.cantidad,
+              tax_affected: true,
+              unit_item: 'UNID'
+            }));
+
+            let dteResponse;
+
+            if (paymentData.tipo_documento === 'boleta') {
+              // Emitir boleta electrónica
+              dteResponse = await apiService.emitirBoleta(productosParaDTE, {
+                comment: `Vale ${vale.numero}`
+              });
+            } else {
+              // Emitir factura electrónica
+              const clienteDTE = {
+                rut: paymentData.rut_cliente,
+                name: paymentData.razon_social || paymentData.nombre_cliente,
+                address: paymentData.direccion,
+                commune_id: null, // Relbase usa IDs de comuna
+                city_id: null
+              };
+
+              dteResponse = await apiService.emitirFactura(productosParaDTE, clienteDTE, {
+                comment: `Vale ${vale.numero}`
+              });
+            }
+
+            console.log('📥 Respuesta DTE completa:', JSON.stringify(dteResponse, null, 2));
+
+            if (dteResponse.success) {
+              folioDTE = dteResponse.data?.folio;
+              modoPruebaDTE = dteResponse.data?.dte?.sii_status === 'simulado';
+              timbreTED = dteResponse.data?.dte?.timbre || null;  // Timbre electrónico del SII (XML para PDF417)
+              console.log('📦 Datos extraídos - folioDTE:', folioDTE, 'modoPruebaDTE:', modoPruebaDTE, 'timbreTED:', timbreTED ? 'presente' : 'ausente');
+
+              const tipoDoc = paymentData.tipo_documento === 'boleta' ? 'Boleta' : 'Factura';
+
+              if (modoPruebaDTE) {
+                mensaje += `\n🧪 ${tipoDoc} SIMULADA - Folio: ${folioDTE} (modo prueba)`;
+              } else {
+                mensaje += `\n🧾 ${tipoDoc} Electrónica emitida - Folio: ${folioDTE}`;
+              }
+
+              console.log(`✅ DTE emitido - Folio: ${folioDTE}, Modo prueba: ${modoPruebaDTE}`);
+
+              // Guardar DTE en la BD para permitir reimpresión futura
+              if (numeroVenta && folioDTE) {
+                try {
+                  await apiService.guardarDTEVenta(numeroVenta, {
+                    folio_dte: folioDTE,
+                    tipo_dte: paymentData.tipo_documento,
+                    timbre_ted: timbreTED,
+                    pdf_url_dte: dteResponse.data?.pdf_url || null,
+                    modo_prueba_dte: modoPruebaDTE
+                  });
+                  console.log(`💾 DTE guardado en BD para venta ${numeroVenta}`);
+                } catch (saveError) {
+                  console.error('⚠️ No se pudo guardar DTE en BD:', saveError);
+                  // No bloquear el flujo por este error
+                }
+              }
+            } else {
+              console.error('❌ Error emitiendo DTE:', dteResponse.message);
+              mensaje += `\n⚠️ No se pudo emitir DTE: ${dteResponse.message}`;
+            }
+          } catch (dteError) {
+            console.error('❌ Error en emisión DTE:', dteError);
+            mensaje += '\n⚠️ Error al emitir documento tributario';
+          }
+        }
+
+        // Imprimir boleta si el servidor de impresión está disponible
+        if (printServerAvailable) {
+          try {
+            const boletaData = printService.formatBoletaData(vale, paymentData, {
+              neto: calcularNeto(),
+              iva: calcularIVA(),
+              descuento: calcularDescuento(),
+              total: totalConIva,
+              montoPagado: montoRecibido,
+              vuelto: vuelto > 0 ? vuelto : 0,
+              folioDTE: folioDTE,
+              modoPruebaDTE: modoPruebaDTE,
+              timbreTED: timbreTED  // Timbre SII para código de barras PDF417
+            });
+            await printService.printBoleta(boletaData);
+            mensaje += '\n🖨️ Boleta enviada a impresión';
+          } catch (printError) {
+            console.error('Error al imprimir:', printError);
+            mensaje += '\n⚠️ No se pudo imprimir la boleta';
+          }
+        }
+
         showToast(mensaje, 'success');
         setShowAmountModal(false);
-        onSuccess();
+        onSuccess(numeroVenta);
       } else {
         showToast(resp.message || 'Error al procesar el vale', 'error');
       }
@@ -326,10 +456,43 @@ const PaymentPanel = ({ vale, onSuccess, showToast, turnoAbierto, productosAfect
   return (
     <>
       <div className="bg-white rounded-lg shadow p-5 sticky top-4">
-        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-          <DollarSign className="w-5 h-5 mr-2 text-green-600" />
-          Resumen de Pago
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-800 flex items-center">
+            <DollarSign className="w-5 h-5 mr-2 text-green-600" />
+            Resumen de Pago
+          </h3>
+          {printServerAvailable && (
+            <button
+              onClick={async () => {
+                try {
+                  const testData = {
+                    numero_vale: 'TEST-001',
+                    fecha: new Date().toISOString(),
+                    cliente: { nombre: 'PRUEBA DE IMPRESIÓN', rut: '', direccion: '' },
+                    productos: [
+                      { nombre: 'Producto de prueba', cantidad: 1, precio_unitario: 1000, subtotal: 1000 }
+                    ],
+                    neto: 1000,
+                    iva: 190,
+                    total: 1190,
+                    tipo_documento: 'boleta',
+                    metodo_pago: 'EFE',
+                    vendedor: 'Sistema'
+                  };
+                  await printService.printBoleta(testData);
+                  showToast('🖨️ Prueba enviada a impresión', 'success');
+                } catch (err) {
+                  showToast('Error: ' + err.message, 'error');
+                }
+              }}
+              className="flex items-center gap-1 text-xs text-green-600 hover:text-green-800 hover:bg-green-50 px-2 py-1 rounded transition-colors"
+              title="Click para probar impresión"
+            >
+              <Printer className="w-4 h-4" />
+              <span className="hidden sm:inline">Probar</span>
+            </button>
+          )}
+        </div>
 
         {vale ? (
           <div className="space-y-4">

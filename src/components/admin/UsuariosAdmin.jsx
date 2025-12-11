@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  Search, 
-  Plus, 
-  Edit, 
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Users,
+  Search,
+  Plus,
+  Edit,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Eye,
   EyeOff,
   Check,
@@ -21,9 +25,10 @@ import ApiService from '../../services/api';
 
 const UsuariosAdmin = () => {
   const [usuarios, setUsuarios] = useState([]);
-  const [roles, setRoles] = useState([]); // Nuevo estado para roles
+  const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterRole, setFilterRole] = useState('todos');
   const [filterStatus, setFilterStatus] = useState('todos');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -32,6 +37,17 @@ const UsuariosAdmin = () => {
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Estado de paginación
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    pages: 0
+  });
+
+  // Ref para scroll a la tabla
+  const tableRef = useRef(null);
 
   // Estados para el formulario
   const [formData, setFormData] = useState({
@@ -62,13 +78,40 @@ const UsuariosAdmin = () => {
     }
   };
 
+  // Debounce para búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Cargar usuarios cuando cambian los filtros o la página
+  useEffect(() => {
+    loadUsuarios();
+  }, [pagination.page, pagination.limit, debouncedSearch, filterStatus]);
+
   // Cargar usuarios
   const loadUsuarios = async () => {
     setLoading(true);
     try {
-      const response = await ApiService.getUsuarios();
+      const params = {
+        page: pagination.page,
+        limit: pagination.limit,
+      };
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (filterStatus === 'activos') params.activo = true;
+      if (filterStatus === 'inactivos') params.activo = false;
+
+      const response = await ApiService.getUsuarios(params);
       if (response.success && response.data) {
         setUsuarios(response.data);
+        if (response.pagination) {
+          setPagination(prev => ({
+            ...prev,
+            ...response.pagination
+          }));
+        }
       } else {
         setUsuarios([]);
       }
@@ -80,10 +123,27 @@ const UsuariosAdmin = () => {
     }
   };
 
+  // Funciones de paginación
+  const goToPage = (page) => {
+    if (page >= 1 && page <= pagination.pages) {
+      setPagination(prev => ({ ...prev, page }));
+      // Scroll suave a la tabla
+      setTimeout(() => {
+        tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  };
+
+  const handleLimitChange = (newLimit) => {
+    setPagination(prev => ({ ...prev, limit: newLimit, page: 1 }));
+    setTimeout(() => {
+      tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
   // Cargar datos iniciales
   useEffect(() => {
     loadRoles();
-    loadUsuarios();
   }, []);
 
   // Función auxiliar para obtener el nombre del rol por ID
@@ -98,27 +158,108 @@ const UsuariosAdmin = () => {
     return rol ? rol.id_rol : null;
   };
 
-  // Filtrar usuarios con comparación case-insensitive
+  // Filtrar usuarios solo por rol (búsqueda y estado se hacen en servidor)
   const usuariosFiltrados = usuarios.filter(usuario => {
     if (!usuario) return false;
-    
-    const nombreCompleto = usuario.nombre_completo || '';
-    const username = usuario.usuario || '';
-    const email = usuario.email || '';
     const rol = usuario.rol || '';
-    
-    const searchLower = searchTerm.toLowerCase();
-    const matchSearch = nombreCompleto.toLowerCase().includes(searchLower) ||
-                       username.toLowerCase().includes(searchLower) ||
-                       email.toLowerCase().includes(searchLower);
-    
     const matchRole = filterRole === 'todos' || rol.toLowerCase() === filterRole.toLowerCase();
-    const matchStatus = filterStatus === 'todos' || 
-                       (filterStatus === 'activos' && usuario.activo) ||
-                       (filterStatus === 'inactivos' && !usuario.activo);
-    
-    return matchSearch && matchRole && matchStatus;
+    return matchRole;
   });
+
+  // Componente de paginación
+  const PaginationComponent = () => {
+    if (pagination.pages <= 1) return null;
+
+    const getPageNumbers = () => {
+      const pages = [];
+      const maxVisible = window.innerWidth < 640 ? 3 : 5;
+      let start = Math.max(1, pagination.page - Math.floor(maxVisible / 2));
+      let end = Math.min(pagination.pages, start + maxVisible - 1);
+
+      if (end - start + 1 < maxVisible) {
+        start = Math.max(1, end - maxVisible + 1);
+      }
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      return pages;
+    };
+
+    return (
+      <div className="flex flex-col sm:flex-row items-center justify-between px-3 sm:px-4 py-3 bg-white border-t border-gray-200 gap-3">
+        <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-start">
+          <span className="text-xs sm:text-sm text-gray-700">
+            <span className="hidden sm:inline">Mostrando </span>
+            <span className="font-medium">{((pagination.page - 1) * pagination.limit) + 1}</span>-
+            <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span>
+            <span className="hidden sm:inline"> de</span>
+            <span className="sm:hidden">/</span>
+            <span className="font-medium"> {pagination.total}</span>
+          </span>
+          <select
+            value={pagination.limit}
+            onChange={(e) => handleLimitChange(Number(e.target.value))}
+            className="px-2 py-1 border border-gray-300 rounded text-xs sm:text-sm"
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => goToPage(1)}
+            disabled={pagination.page === 1}
+            className="p-1 sm:p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Primera página"
+          >
+            <ChevronsLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => goToPage(pagination.page - 1)}
+            disabled={pagination.page === 1}
+            className="p-1 sm:p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Página anterior"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          {getPageNumbers().map(pageNum => (
+            <button
+              key={pageNum}
+              onClick={() => goToPage(pageNum)}
+              className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm ${
+                pageNum === pagination.page
+                  ? 'bg-blue-600 text-white'
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
+            >
+              {pageNum}
+            </button>
+          ))}
+
+          <button
+            onClick={() => goToPage(pagination.page + 1)}
+            disabled={pagination.page === pagination.pages}
+            className="p-1 sm:p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Página siguiente"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => goToPage(pagination.pages)}
+            disabled={pagination.page === pagination.pages}
+            className="p-1 sm:p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Última página"
+          >
+            <ChevronsRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // Validar formulario
   const validateForm = () => {
@@ -335,24 +476,24 @@ const UsuariosAdmin = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-0">
       {/* Header con estadísticas dinámicas */}
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 border border-gray-200">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
           <div className="text-center">
-            <div className="text-3xl font-bold text-gray-800">{usuarios.length}</div>
-            <div className="text-sm text-gray-600">Total Usuarios</div>
+            <div className="text-xl sm:text-3xl font-bold text-gray-800">{usuarios.length}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Total</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-green-600">
+            <div className="text-xl sm:text-3xl font-bold text-green-600">
               {usuarios.filter(u => u && u.activo).length}
             </div>
-            <div className="text-sm text-gray-600">Activos</div>
+            <div className="text-xs sm:text-sm text-gray-600">Activos</div>
           </div>
           {/* Mostrar estadísticas por cada rol */}
           {roles.slice(0, 4).map((rol) => (
             <div key={rol.id_rol} className="text-center">
-              <div className={`text-3xl font-bold ${
+              <div className={`text-xl sm:text-3xl font-bold ${
                 rol.nombre.toLowerCase().includes('admin') ? 'text-purple-600' :
                 rol.nombre.toLowerCase().includes('cajero') ? 'text-blue-600' :
                 rol.nombre.toLowerCase().includes('bodeguero') ? 'text-green-600' :
@@ -360,7 +501,7 @@ const UsuariosAdmin = () => {
               }`}>
                 {getRoleCount(rol.nombre)}
               </div>
-              <div className="text-sm text-gray-600">{rol.nombre}s</div>
+              <div className="text-xs sm:text-sm text-gray-600">{rol.nombre}s</div>
             </div>
           ))}
         </div>
@@ -383,66 +524,69 @@ const UsuariosAdmin = () => {
       )}
 
       {/* Barra de búsqueda y filtros */}
-      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
+      <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 border border-gray-200">
+        <div className="flex flex-col gap-3 sm:gap-4">
+          {/* Búsqueda */}
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Buscar por nombre, usuario o email..."
+              placeholder="Buscar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             />
           </div>
-          
-          <select
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="todos">Todos los roles</option>
-            {roles.map((rol) => (
-              <option key={rol.id_rol} value={rol.nombre.toLowerCase()}>
-                {rol.nombre}s
-              </option>
-            ))}
-          </select>
-          
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="todos">Todos los estados</option>
-            <option value="activos">Activos</option>
-            <option value="inactivos">Inactivos</option>
-          </select>
-          
-          <button
-            onClick={() => {
-              resetForm();
-              setShowCreateModal(true);
-            }}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Nuevo Usuario
-          </button>
-          
-          <button
-            onClick={loadUsuarios}
-            disabled={loading}
-            className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Actualizar
-          </button>
+
+          {/* Filtros y botones */}
+          <div className="flex flex-wrap gap-2 sm:gap-4">
+            <select
+              value={filterRole}
+              onChange={(e) => setFilterRole(e.target.value)}
+              className="flex-1 min-w-[120px] px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="todos">Todos roles</option>
+              {roles.map((rol) => (
+                <option key={rol.id_rol} value={rol.nombre.toLowerCase()}>
+                  {rol.nombre}s
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="flex-1 min-w-[100px] px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="todos">Todos</option>
+              <option value="activos">Activos</option>
+              <option value="inactivos">Inactivos</option>
+            </select>
+
+            <button
+              onClick={() => {
+                resetForm();
+                setShowCreateModal(true);
+              }}
+              className="flex items-center justify-center px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            >
+              <Plus className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Nuevo</span>
+            </button>
+
+            <button
+              onClick={loadUsuarios}
+              disabled={loading}
+              className="flex items-center justify-center px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Tabla de usuarios */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div ref={tableRef} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -477,7 +621,7 @@ const UsuariosAdmin = () => {
               ) : usuariosFiltrados.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                    {usuarios.length === 0 ? 'No hay usuarios registrados' : 'No se encontraron usuarios con los filtros aplicados'}
+                    No se encontraron usuarios
                   </td>
                 </tr>
               ) : (
@@ -608,13 +752,14 @@ const UsuariosAdmin = () => {
             </tbody>
           </table>
         </div>
+        <PaginationComponent />
       </div>
 
       {/* Modal Crear/Editar Usuario */}
       {(showCreateModal || showEditModal) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-4 sm:p-6 max-h-[95vh] overflow-y-auto">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">
               {showEditModal ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
             </h2>
             

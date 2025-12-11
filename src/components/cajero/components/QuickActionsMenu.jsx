@@ -9,7 +9,8 @@ import {
   Clock,
   DollarSign,
   Menu,
-  X
+  X,
+  Printer
 } from 'lucide-react';
 
 const QuickActionsMenu = ({
@@ -17,7 +18,8 @@ const QuickActionsMenu = ({
   onReportes,
   onEstadisticas,
   onMorosidades,
-  onClientes
+  onClientes,
+  onReimprimirUltima
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -65,6 +67,13 @@ const QuickActionsMenu = ({
       icon: AlertCircle,
       color: 'bg-red-500 hover:bg-red-600',
       action: onMorosidades
+    },
+    {
+      id: 'reimprimir',
+      label: 'Reimprimir Última',
+      icon: Printer,
+      color: 'bg-orange-500 hover:bg-orange-600',
+      action: onReimprimirUltima
     }
   ];
 

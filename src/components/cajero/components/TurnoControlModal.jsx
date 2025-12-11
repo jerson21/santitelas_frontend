@@ -21,7 +21,9 @@ const TurnoControlModal = ({
   turnoInfo,
   turnoActions,
   showToast,
-  onTurnoChange
+  onTurnoChange,
+  onArqueoIntermedio,
+  onCierreCompleto
 }) => {
   const [showMontoInicialModal, setShowMontoInicialModal] = useState(false);
   const [showConfirmCierreModal, setShowConfirmCierreModal] = useState(false);
@@ -74,28 +76,24 @@ const TurnoControlModal = ({
 
     try {
       const resultado = await turnoActions.cerrarTurno(monto);
-      const diferencia = resultado?.diferencia || 0;
 
-      let mensaje = '✅ Turno de caja cerrado correctamente';
-      if (diferencia !== 0) {
-        mensaje += `\n${diferencia > 0 ? '📈' : '📉'} Diferencia: $${Math.abs(diferencia).toLocaleString('es-CL')} ${diferencia > 0 ? 'sobrante' : 'faltante'}`;
-      } else {
-        mensaje += '\n🎯 Sin diferencias - Arqueo perfecto';
-      }
-
-      showToast(mensaje, diferencia === 0 ? 'success' : 'warning', false);
       onTurnoChange();
       onClose();
+
+      // Llamar callback con datos del cierre para mostrar modal de resumen
+      if (onCierreCompleto && resultado) {
+        onCierreCompleto(resultado);
+      }
     } catch (error) {
       showToast('Error al cerrar el turno', 'error');
     }
   };
 
   const handleArqueoIntermedio = () => {
-    // Esta función se manejará desde el componente padre
-    // que abrirá el modal de arqueo
     onClose();
-    // Aquí se debería abrir el modal de arqueo
+    if (onArqueoIntermedio) {
+      onArqueoIntermedio();
+    }
   };
 
   return (
@@ -173,17 +171,17 @@ const TurnoControlModal = ({
             </div>
           </button>
 
-          {/* Arqueo Intermedio */}
+          {/* Retiro de Caja */}
           <button
             onClick={handleArqueoIntermedio}
             disabled={!turnoAbierto}
-            className="w-full bg-blue-600 text-white p-4 rounded-lg transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700"
+            className="w-full bg-orange-600 text-white p-4 rounded-lg transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-orange-700"
           >
             <div className="flex items-center justify-center space-x-3">
               <Calculator className="w-6 h-6" />
               <div className="text-left">
-                <p className="font-semibold">Arqueo Intermedio</p>
-                <p className="text-sm opacity-90">Realizar conteo de caja durante el turno</p>
+                <p className="font-semibold">Retiro de Caja</p>
+                <p className="text-sm opacity-90">Retirar efectivo de la caja</p>
               </div>
             </div>
           </button>

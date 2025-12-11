@@ -1,10 +1,24 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { LogOut, ShoppingCart, X, Trash2, Receipt, Printer } from 'lucide-react';
+import { LogOut, ShoppingCart, X, Trash2, Receipt, Printer, Home } from 'lucide-react';
 import UltimosVales from './UltimosVales';
 
-const VendedorHeader = ({ cartItems = [], cartTotal = 0, onRemoveItem, onCreateVale, documentType, loading = false, clienteActual = null, onNewClient, onAgregarProductosAVale }) => {
+const VendedorHeader = ({
+  cartItems = [],
+  cartTotal = 0,
+  onRemoveItem,
+  onCreateVale,
+  documentType,
+  loading = false,
+  clienteActual = null,
+  onNewClient,
+  onAgregarProductosAVale,
+  // Nuevas props para navegación y búsqueda
+  onGoHome,
+  currentLevel,
+  searchComponent
+}) => {
   const { logout } = useAuth();
   const [showCartPanel, setShowCartPanel] = useState(false);
   const [showUltimosVales, setShowUltimosVales] = useState(false);
@@ -62,14 +76,40 @@ const VendedorHeader = ({ cartItems = [], cartTotal = 0, onRemoveItem, onCreateV
 
   return (
     <>
-      {/* Header Super Simple */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-40 overflow-x-hidden">
+      {/* Header con Inicio, Buscador y Carrito */}
+      <header className="bg-white shadow-sm border-b sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-3">
-          <div className="flex justify-between items-center gap-2">
-            {/* Logo */}
-            <h1 className="text-lg sm:text-2xl font-bold text-blue-600 flex-shrink-0">Santi Telas</h1>
+          <div className="flex justify-between items-center gap-2 sm:gap-4">
+            {/* Izquierda: Logo + Botón Inicio */}
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+              <img
+                src="/logo.png"
+                alt="Santi Telas"
+                className="h-8 sm:h-10 w-auto"
+              />
 
-            {/* Controles de Vendedor */}
+              {/* Botón Inicio */}
+              {onGoHome && (
+                <button
+                  onClick={onGoHome}
+                  className={`flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2 rounded-lg font-semibold text-sm sm:text-base transition-all ${
+                    currentLevel === 'categories'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  <Home className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">Inicio</span>
+                </button>
+              )}
+            </div>
+
+            {/* Centro: Buscador - siempre visible */}
+            <div className="flex-1 min-w-0 max-w-md">
+              {searchComponent}
+            </div>
+
+            {/* Derecha: Controles */}
             <div className="flex items-center gap-1 sm:gap-3">
               {/* Botón Reimprimir Últimos Vales */}
               <button

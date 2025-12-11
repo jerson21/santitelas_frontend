@@ -35,6 +35,8 @@ const useVale = (showToast, refreshEstadisticas) => {
     const valeFormateado = {
       numero: detalle.numero_vale || numeroOriginal,
       numero_display: detalle.numero_display || numeroOriginal,
+      numero_pedido: detalle.numero_pedido || detalle.numero_vale,
+      numero_diario: detalle.numero_diario,
       cliente: detalle.cliente_info?.nombre || 
                detalle.cliente_info?.razon_social || 
                'Cliente sin datos',

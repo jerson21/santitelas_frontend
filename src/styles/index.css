@@ -3,8 +3,21 @@
 @tailwind utilities;
 
 @layer base {
+  * {
+    touch-action: manipulation; /* Elimina delay 300ms en táctil */
+  }
+
   body {
     @apply font-sans antialiased;
+    -webkit-overflow-scrolling: touch; /* Scroll suave en táctil */
+    user-select: none; /* Evita selección al deslizar */
+    -webkit-user-select: none;
+  }
+
+  /* Permitir selección en campos de texto */
+  input, textarea, [contenteditable], .selectable {
+    user-select: text;
+    -webkit-user-select: text;
   }
 }
 

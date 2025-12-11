@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, FileText, User, Calendar, Printer, Loader2, Plus } from 'lucide-react';
 import ApiService from '../../services/api';
+import printService from '../../services/printService';
 
 /**
  * Componente simple para mostrar los últimos 3 vales creados por el vendedor
@@ -65,16 +66,32 @@ const UltimosVales = ({ isOpen, onClose, onAgregarProductos }) => {
   const handleReimprimir = async (vale) => {
     setImprimiendo(vale.id_pedido);
     try {
-      // TODO: Implementar generación de PDF
-      console.log('Reimprimiendo vale:', vale);
+      console.log('🖨️ Reimprimiendo vale:', vale.numero_pedido || vale.numero_vale);
 
-      // Simulación temporal
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Obtener detalles del vale para imprimir
+      let detalles = [];
+      try {
+        const detallesResponse = await ApiService.getDetallesValeVendedor(vale.id_pedido);
+        if (detallesResponse.success && detallesResponse.data) {
+          detalles = detallesResponse.data.productos || detallesResponse.data.detalles || [];
+        }
+      } catch (e) {
+        console.warn('No se pudieron obtener detalles del vale, imprimiendo sin productos');
+      }
 
-      alert(`Vale ${vale.numero_vale} listo para imprimir`);
+      // Imprimir usando el servicio
+      const result = await printService.reimprimirVale(vale, detalles);
+
+      if (result.success) {
+        // Mostrar mensaje de éxito breve
+        console.log('✅ Vale reimpreso correctamente');
+      } else {
+        // Mostrar error
+        alert(result.error || 'No se pudo imprimir el vale. Verifique que Print Server esté ejecutándose.');
+      }
     } catch (error) {
-      console.error('Error reimprimiendo vale:', error);
-      alert('Error al reimprimir vale');
+      console.error('❌ Error reimprimiendo vale:', error);
+      alert('Error al reimprimir vale: ' + error.message);
     }
     setImprimiendo(null);
   };

@@ -7,7 +7,9 @@ import {
   Settings,
   FileText,
   Search,
-  Clock
+  Clock,
+  AlertTriangle,
+  DollarSign
 } from 'lucide-react';
 
 // Componentes organizados
@@ -18,6 +20,8 @@ import TurnoControlModal from './components/TurnoControlModal';
 import EstadisticasModal from './components/EstadisticasModal';
 import ValeAntiguoModal from './components/ValeAntiguoModal';
 import ArqueoModal from './components/ArqueoModal';
+import RetiroCajaModal from './components/RetiroCajaModal';
+import CierreTurnoResumenModal from './components/CierreTurnoResumenModal';
 import DebugPanel from './components/DebugPanel';
 import Toast from './components/Toast';
 import ReportesModal from './components/ReportesModal';
@@ -33,11 +37,18 @@ import useVale from './hooks/useVale';
 import useEstadisticas from './hooks/useEstadisticas';
 import useToast from './hooks/useToast';
 
+// Servicios
+import apiService from '../../services/api';
+import printService from '../../services/printService';
+
 const CajeroDashboard = () => {
   // Estados principales del dashboard
   const [showTurnoModal, setShowTurnoModal] = useState(false);
   const [showEstadisticasModal, setShowEstadisticasModal] = useState(false);
   const [showArqueoModal, setShowArqueoModal] = useState(false);
+  const [showRetiroModal, setShowRetiroModal] = useState(false);
+  const [showCierreResumenModal, setShowCierreResumenModal] = useState(false);
+  const [datosCierreTurno, setDatosCierreTurno] = useState(null);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [showReportesModal, setShowReportesModal] = useState(false);
   const [showBuscarClienteModal, setShowBuscarClienteModal] = useState(false);
@@ -47,6 +58,7 @@ const CajeroDashboard = () => {
   const [datosMultiples, setDatosMultiples] = useState(null);
   const [valeDetalleNumero, setValeDetalleNumero] = useState(null);
   const [productosAfectosDescuento, setProductosAfectosDescuento] = useState({});
+  const [ultimaVentaNumero, setUltimaVentaNumero] = useState(null);
 
   // Hooks customizados
   const { toast, showToast, hideToast } = useToast();
@@ -88,7 +100,10 @@ const CajeroDashboard = () => {
     showToast('Datos actualizados', 'info');
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = (numeroVenta) => {
+    if (numeroVenta) {
+      setUltimaVentaNumero(numeroVenta);
+    }
     clearVale();
     refreshEstadisticas();
   };
@@ -113,6 +128,91 @@ const CajeroDashboard = () => {
   const handleVerDetalle = (numeroVale) => {
     setValeDetalleNumero(numeroVale);
     setShowValeDetalleModal(true);
+  };
+
+  // Función para reimprimir una boleta/factura específica
+  const handleReimprimir = async (numeroVenta) => {
+    try {
+      showToast('Obteniendo datos para reimprimir...', 'info');
+
+      // Obtener datos desde el backend
+      const response = await apiService.obtenerDatosReimprimir(numeroVenta);
+
+      if (!response.success || !response.data) {
+        throw new Error(response.message || 'No se encontraron datos para reimprimir');
+      }
+
+      const datos = response.data;
+
+      // Verificar que el servidor de impresión esté disponible
+      const printerAvailable = await printService.checkConnection();
+      if (!printerAvailable) {
+        showToast('Servidor de impresión no disponible', 'error');
+        return;
+      }
+
+      // Transformar datos al formato que espera el printService
+      // Formatear número de vale: VP20251203 04
+      let numeroValeFormateado = '';
+      const codigoCompleto = datos.numero_vale;
+      if (codigoCompleto && codigoCompleto.includes('VP')) {
+        const partes = codigoCompleto.split('-');
+        const codigoBase = partes[0];
+        const numeroDiario = datos.numero_diario
+          ? String(datos.numero_diario).padStart(2, '0')
+          : (partes[1] ? String(parseInt(partes[1], 10)).padStart(2, '0') : '');
+        numeroValeFormateado = `${codigoBase} ${numeroDiario}`;
+      } else {
+        numeroValeFormateado = codigoCompleto || '';
+      }
+
+      const boletaData = {
+        numero_vale: numeroValeFormateado,
+        fecha: datos.fecha,
+        cliente: {
+          nombre: datos.cliente?.nombre || 'Cliente General',
+          rut: datos.cliente?.rut || '',
+          direccion: datos.cliente?.direccion || ''
+        },
+        productos: datos.productos?.map(p => ({
+          nombre: p.descripcion_completa || p.nombre || 'Producto',
+          cantidad: p.cantidad,
+          precio_unitario: p.precio_unitario,
+          subtotal: p.subtotal || (p.cantidad * p.precio_unitario)
+        })) || [],
+        neto: datos.totales?.subtotal || 0,
+        iva: datos.totales?.iva || 0,
+        descuento: datos.totales?.descuento || 0,
+        total: datos.totales?.total || 0,
+        tipo_documento: datos.dte?.tipo || 'boleta',
+        metodo_pago: datos.pago?.metodo || 'EFE',
+        monto_pagado: datos.pago?.monto_pagado || datos.totales?.total || 0,
+        vuelto: datos.pago?.vuelto > 0 ? datos.pago.vuelto : 0,
+        vendedor: datos.vendedor || '',
+        folio_dte: datos.dte?.folio || null,
+        modo_prueba_dte: datos.dte?.modo_prueba || false,
+        timbre_ted: datos.dte?.timbre_ted || null
+      };
+
+      console.log('🖨️ Datos para reimprimir:', boletaData);
+
+      // Enviar a imprimir
+      await printService.printBoleta(boletaData);
+      showToast('Reimpresión enviada correctamente', 'success');
+
+    } catch (error) {
+      console.error('Error al reimprimir:', error);
+      showToast(`Error al reimprimir: ${error.message}`, 'error');
+    }
+  };
+
+  // Función para reimprimir la última venta procesada
+  const handleReimprimirUltima = async () => {
+    if (!ultimaVentaNumero) {
+      showToast('No hay una venta reciente para reimprimir', 'warning');
+      return;
+    }
+    await handleReimprimir(ultimaVentaNumero);
   };
 
   return (
@@ -153,6 +253,23 @@ const CajeroDashboard = () => {
                 </span>
                 <span className="text-xs sm:text-sm text-orange-600 hidden sm:inline">
                   {estadisticas.dia_actual.pendientes === 1 ? 'pendiente' : 'pendientes'}
+                </span>
+              </div>
+            </button>
+          )}
+
+          {/* Alerta de Retiro - Más de $200.000 en caja */}
+          {turnoInfo?.requiere_retiro && (
+            <button
+              onClick={() => setShowRetiroModal(true)}
+              className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-red-100 to-red-200 border-2 border-red-400 rounded-lg hover:from-red-200 hover:to-red-300 transition-all shadow-sm flex-shrink-0 animate-pulse"
+              title="Realizar retiro de caja"
+            >
+              <div className="flex items-center gap-1 sm:gap-2">
+                <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                <span className="text-xs sm:text-sm font-bold text-red-800 hidden sm:inline">
+                  Retiro
                 </span>
               </div>
             </button>
@@ -264,6 +381,11 @@ const CajeroDashboard = () => {
         turnoActions={turnoActions}
         showToast={showToast}
         onTurnoChange={refreshEstadisticas}
+        onArqueoIntermedio={() => setShowRetiroModal(true)}
+        onCierreCompleto={(datosCierre) => {
+          setDatosCierreTurno(datosCierre);
+          setShowCierreResumenModal(true);
+        }}
       />
 
       <EstadisticasModal
@@ -278,6 +400,48 @@ const CajeroDashboard = () => {
         onClose={() => setShowArqueoModal(false)}
         onSubmit={turnoActions.arqueoIntermedio}
         loading={turnoActions.arqueoLoading}
+      />
+
+      <RetiroCajaModal
+        isOpen={showRetiroModal}
+        onClose={() => setShowRetiroModal(false)}
+        onSubmit={async (monto, motivo) => {
+          try {
+            const result = await turnoActions.retiroCaja(monto, motivo);
+            showToast(`Retiro de $${monto.toLocaleString('es-CL')} registrado correctamente`, 'success');
+            setShowRetiroModal(false);
+            return result;
+          } catch (error) {
+            showToast(error.message || 'Error al registrar retiro', 'error');
+            throw error;
+          }
+        }}
+        loading={turnoActions.retiroLoading}
+        montoTeorico={turnoInfo?.monto_teorico || 0}
+      />
+
+      <CierreTurnoResumenModal
+        isOpen={showCierreResumenModal}
+        onClose={() => {
+          setShowCierreResumenModal(false);
+          setDatosCierreTurno(null);
+        }}
+        data={datosCierreTurno}
+        onPrint={async () => {
+          if (datosCierreTurno) {
+            try {
+              const datosFormateados = printService.formatCierreTurnoData(datosCierreTurno);
+              const result = await printService.printCierreTurno(datosFormateados);
+              if (result.success) {
+                showToast('Ticket de cierre impreso correctamente', 'success');
+              } else {
+                showToast(result.error || 'Error al imprimir', 'error');
+              }
+            } catch (error) {
+              showToast('Error al imprimir: ' + error.message, 'error');
+            }
+          }
+        }}
       />
 
       <ValeAntiguoModal
@@ -298,6 +462,7 @@ const CajeroDashboard = () => {
         onClose={() => setShowReportesModal(false)}
         onValeSelect={handleValeSelectFromReporte}
         onVerDetalle={handleVerDetalle}
+        onReimprimir={handleReimprimir}
       />
 
       <BuscarClienteModal
@@ -343,6 +508,7 @@ const CajeroDashboard = () => {
           setShowReportesModal(true);
           // TODO: Abrir directamente en la pestaña de morosidades
         }}
+        onReimprimirUltima={handleReimprimirUltima}
       />
 
       {/* Modal de Clientes */}

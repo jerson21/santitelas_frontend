@@ -115,16 +115,16 @@ const VirtualKeyboardModal = memo(({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[400] p-2 sm:p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-6 md:p-8 w-full max-w-3xl max-h-[95vh] overflow-y-auto animate-scale-in">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[400] p-4">
+      <div className={`bg-white rounded-2xl shadow-2xl p-6 w-full animate-scale-in ${mode === 'rut' ? 'max-w-lg' : 'max-w-3xl'}`}>
         {/* Header */}
-        <div className="text-center mb-4 sm:mb-6">
-          <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">{layout.title}</h3>
-          <p className="text-sm sm:text-base text-gray-600">Use el teclado físico o toque las teclas virtuales</p>
+        <div className="text-center mb-5">
+          <h3 className="text-2xl font-bold text-gray-800">{layout.title}</h3>
+          <p className="text-base text-gray-500">Use teclado físico o toque las teclas</p>
         </div>
 
-        {/* Input visible para teclado físico */}
-        <div className="mb-4 sm:mb-8">
+        {/* Input grande y visible */}
+        <div className="mb-6">
           <input
             ref={inputRef}
             type="text"
@@ -132,42 +132,38 @@ const VirtualKeyboardModal = memo(({
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={mode === 'rut' ? '12.345.678-9' : 'Escriba el nombre...'}
-            className="w-full px-4 sm:px-6 py-3 sm:py-4 text-lg sm:text-2xl font-medium text-center bg-gray-50 border-2 border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-400 focus:border-blue-500 transition-all"
+            className="w-full px-6 py-5 text-4xl font-bold text-center bg-gray-50 border-3 border-blue-400 rounded-2xl focus:ring-4 focus:ring-blue-500 focus:border-blue-600"
             autoComplete="off"
             maxLength={mode === 'rut' ? 12 : 100}
           />
-          <p className="text-center text-xs sm:text-sm text-gray-500 mt-2">
-            {mode === 'rut' ? 'Formato: 12.345.678-9' : `${localValue.length} caracteres`}
-          </p>
         </div>
 
-        {/* Teclado Virtual - RESPONSIVE CON DIFERENTES TAMAÑOS SEGÚN MODO */}
-        <div className={`mb-4 sm:mb-8 ${mode === 'rut' ? 'space-y-3 sm:space-y-4' : 'space-y-2'}`}>
+        {/* Teclado Virtual - GRANDE para touch */}
+        <div className={`mb-6 ${mode === 'rut' ? 'space-y-4' : 'space-y-2'}`}>
           {layout.rows.map((row, rowIndex) => (
             <div
               key={`row-${rowIndex}`}
-              className={`flex justify-center ${mode === 'rut' ? 'gap-3 sm:gap-4' : 'gap-1 sm:gap-2'}`}
+              className={`flex justify-center ${mode === 'rut' ? 'gap-4' : 'gap-2'}`}
             >
               {row.map((key) => {
-                // Clases GRANDES para teclado RUT (solo 12 teclas)
+                // Teclado RUT: teclas GRANDES para touch 15"
                 let keyClass = mode === 'rut'
-                  ? "bg-gray-100 hover:bg-gray-200 text-gray-800 text-2xl sm:text-3xl md:text-4xl font-bold py-5 sm:py-6 md:py-8 px-6 sm:px-8 md:px-10 rounded-xl sm:rounded-2xl shadow-lg active:scale-95 transition-all flex-1 max-w-[80px] sm:max-w-[100px] md:max-w-[120px]"
-                  // Clases PEQUEÑAS para teclado alfabético (30+ teclas)
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm sm:text-lg md:text-xl font-semibold py-2 sm:py-3 md:py-4 px-2 sm:px-4 md:px-6 rounded-lg sm:rounded-xl shadow-md active:scale-95 transition-all flex-1 max-w-[50px] sm:max-w-[60px] md:max-w-[80px]";
+                  ? "bg-gray-100 hover:bg-blue-100 active:bg-blue-200 text-gray-800 text-4xl font-bold py-6 rounded-2xl shadow-lg active:scale-95 transition-all flex-1 border-2 border-gray-200"
+                  // Teclado alfabético
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-800 text-xl font-semibold py-4 px-2 rounded-xl shadow-md active:scale-95 transition-all flex-1 max-w-[55px]";
 
                 let displayKey = key;
 
                 if (key === '⌫') {
                   keyClass = mode === 'rut'
-                    ? "bg-red-500 hover:bg-red-600 text-white text-2xl sm:text-3xl md:text-4xl font-bold py-5 sm:py-6 md:py-8 px-6 sm:px-8 md:px-10 rounded-xl sm:rounded-2xl shadow-lg active:scale-95 transition-all flex-1 max-w-[80px] sm:max-w-[100px] md:max-w-[120px]"
-                    : "bg-red-500 hover:bg-red-600 text-white text-sm sm:text-lg md:text-xl font-bold py-2 sm:py-3 md:py-4 px-2 sm:px-4 md:px-6 rounded-lg sm:rounded-xl shadow-md active:scale-95 transition-all flex-1 max-w-[60px] sm:max-w-[80px] md:max-w-[100px]";
+                    ? "bg-red-500 hover:bg-red-600 active:bg-red-700 text-white text-4xl font-bold py-6 rounded-2xl shadow-lg active:scale-95 transition-all flex-1 border-2 border-red-600"
+                    : "bg-red-500 hover:bg-red-600 text-white text-xl font-bold py-4 px-3 rounded-xl shadow-md active:scale-95 transition-all flex-1 max-w-[70px]";
                   displayKey = '←';
                 } else if (key === '⇧') {
-                  keyClass = `${capsLock ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700'} hover:bg-blue-600 text-sm sm:text-base md:text-lg font-bold py-2 sm:py-3 md:py-4 px-2 sm:px-4 md:px-6 rounded-lg sm:rounded-xl shadow-md active:scale-95 transition-all flex-1 max-w-[60px] sm:max-w-[80px] md:max-w-[100px]`;
-                  displayKey = '⇧';
+                  keyClass = `${capsLock ? 'bg-blue-500 text-white border-blue-600' : 'bg-gray-300 text-gray-700 border-gray-400'} text-xl font-bold py-4 px-3 rounded-xl shadow-md active:scale-95 transition-all flex-1 max-w-[70px] border-2`;
                 } else if (key === 'espacio') {
-                  keyClass = "bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm sm:text-base md:text-lg font-semibold py-2 sm:py-3 md:py-4 px-2 sm:px-4 md:px-6 rounded-lg sm:rounded-xl shadow-md active:scale-95 transition-all flex-1";
-                  displayKey = '⎵';
+                  keyClass = "bg-gray-200 hover:bg-gray-300 text-gray-600 text-xl font-semibold py-4 px-6 rounded-xl shadow-md active:scale-95 transition-all flex-1 border-2 border-gray-300";
+                  displayKey = 'ESPACIO';
                 }
 
                 return (
@@ -185,21 +181,20 @@ const VirtualKeyboardModal = memo(({
           ))}
         </div>
 
-        {/* Botones de acción */}
-        <div className="flex gap-2 sm:gap-4">
+        {/* Botones de acción GRANDES */}
+        <div className="flex gap-4">
           <button
             onClick={onClose}
-            className="flex-1 px-4 sm:px-6 py-3 sm:py-4 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-all text-sm sm:text-lg active:scale-95"
+            className="flex-1 px-6 py-4 bg-gray-200 text-gray-700 rounded-2xl font-bold hover:bg-gray-300 text-xl"
           >
             Cancelar
           </button>
           <button
             onClick={onAccept}
-            className="flex-1 px-4 sm:px-6 py-3 sm:py-4 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-all shadow-xl hover:shadow-2xl text-sm sm:text-lg active:scale-95 flex items-center justify-center gap-2"
+            className="flex-1 px-6 py-4 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 text-xl flex items-center justify-center gap-3 shadow-lg"
           >
-            <Check className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="hidden sm:inline">Aceptar</span>
-            <span className="sm:hidden">OK</span>
+            <Check className="w-6 h-6" />
+            Aceptar
           </button>
         </div>
       </div>
@@ -511,7 +506,7 @@ const ClienteModalTouch = ({ isOpen, onConfirm, onCancel, initialData = null }) 
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[200] p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-5 w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-xl">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
@@ -522,9 +517,7 @@ const ClienteModalTouch = ({ isOpen, onConfirm, onCancel, initialData = null }) 
                 <h2 className="text-2xl font-bold text-gray-800">
                   {initialData ? 'Editar Cliente' : 'Nueva Venta'}
                 </h2>
-                <p className="text-sm text-gray-600">
-                  {initialData ? 'Modifique los datos del cliente' : 'Ingrese los datos del cliente'}
-                </p>
+                <p className="text-sm text-gray-500">Ingrese los datos del cliente</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -548,112 +541,84 @@ const ClienteModalTouch = ({ isOpen, onConfirm, onCancel, initialData = null }) 
 
           {/* Panel de información */}
           {showInfo && (
-            <div className="mb-4 p-4 bg-blue-50 rounded-xl animate-fade-in">
-              <h4 className="font-medium text-gray-700 mb-2 text-sm">ℹ️ Información de uso</h4>
-              <ul className="text-xs text-gray-600 space-y-1">
-                <li>• Toque los campos para abrir el teclado virtual</li>
-                <li>• Puede usar teclado físico o virtual</li>
-                <li>• Al ingresar 8+ dígitos de RUT se busca automáticamente</li>
-                <li>• Presione Enter para aceptar</li>
-                <li>• El RUT es obligatorio solo para facturas</li>
-              </ul>
+            <div className="mb-4 p-3 bg-blue-50 rounded-xl animate-fade-in text-sm text-gray-600">
+              <p>• Toque los campos para abrir el teclado virtual • El RUT es obligatorio solo para facturas</p>
             </div>
           )}
 
           {/* Formulario */}
-          <div className="space-y-6">
+          <div className="space-y-5">
             {/* Nombre del Cliente */}
-            <div className="relative">
-              <label className="flex items-center space-x-2 text-base font-medium text-gray-700 mb-3">
+            <div>
+              <label className="flex items-center space-x-2 text-base font-medium text-gray-700 mb-2">
                 <User className="w-5 h-5" />
                 <span>Nombre del Cliente</span>
-                <span className="text-xs text-gray-500">(Opcional)</span>
+                <span className="text-sm text-gray-400">(Opcional)</span>
               </label>
-              
-              <div className="flex space-x-2">
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    value={clienteData.nombre}
-                    readOnly
-                    onClick={() => openVirtualKeyboard('nombre')}
-                    placeholder="Toque aquí para escribir..."
-                    className={`w-full px-5 py-4 border-2 rounded-xl focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition-all text-lg cursor-pointer ${
-                      errors.nombre ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                    autoComplete="off"
-                  />
-                </div>
-                
+
+              <div className="flex space-x-3">
+                <input
+                  type="text"
+                  value={clienteData.nombre}
+                  readOnly
+                  onClick={() => openVirtualKeyboard('nombre')}
+                  placeholder="Toque para escribir..."
+                  className={`flex-1 px-4 py-4 border-2 rounded-xl text-lg cursor-pointer ${
+                    errors.nombre ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  autoComplete="off"
+                />
                 <button
                   type="button"
                   onClick={() => openVirtualKeyboard('nombre')}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-4 rounded-xl shadow-lg active:scale-95 transition-all"
-                  title="Teclado virtual"
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-4 rounded-xl shadow-md"
                 >
-                  <Type className="w-5 h-5" />
+                  <Type className="w-6 h-6" />
                 </button>
               </div>
-              
-              {errors.nombre && (
-                <p className="mt-2 text-sm text-red-600">{errors.nombre}</p>
-              )}
+              {errors.nombre && <p className="mt-2 text-sm text-red-600">{errors.nombre}</p>}
             </div>
 
             {/* RUT */}
             <div>
-              <label className="flex items-center space-x-2 text-base font-medium text-gray-700 mb-3">
+              <label className="flex items-center flex-wrap gap-2 text-base font-medium text-gray-700 mb-2">
                 <CreditCard className="w-5 h-5" />
                 <span>RUT del Cliente</span>
-                <span className="text-xs text-gray-500">(Opcional, obligatorio para factura)</span>
-                {buscando && (
-                  <Loader className="w-4 h-4 animate-spin text-blue-500" />
-                )}
+                <span className="text-sm text-gray-400">(Obligatorio para factura)</span>
+                {buscando && <Loader className="w-4 h-4 animate-spin text-blue-500" />}
                 {clienteEncontrado && (
-                  <span className="text-xs text-green-600 flex items-center bg-green-100 px-2 py-1 rounded-full">
-                    <UserCheck className="w-3 h-3 mr-1" />
-                    Cliente encontrado
+                  <span className="text-sm text-green-600 bg-green-100 px-2 py-1 rounded-full flex items-center">
+                    <UserCheck className="w-4 h-4 mr-1" /> Encontrado
                   </span>
                 )}
               </label>
-              
-              <div className="flex space-x-2">
+
+              <div className="flex space-x-3">
                 <div className="flex-1 relative">
                   <input
                     type="text"
                     value={clienteData.rut}
                     readOnly
                     onClick={() => openVirtualKeyboard('rut')}
-                    placeholder="Toque aquí para escribir..."
-                    className={`w-full px-5 py-4 border-2 rounded-xl focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition-all text-lg font-mono cursor-pointer ${
+                    placeholder="Toque para escribir..."
+                    className={`w-full px-4 py-4 border-2 rounded-xl text-lg font-mono cursor-pointer ${
                       errors.rut ? 'border-red-300' : clienteEncontrado ? 'border-green-400 bg-green-50' : 'border-gray-300'
                     }`}
                   />
                   {buscando && (
-                    <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                      <Search className="w-5 h-5 text-blue-500 animate-pulse" />
-                    </div>
+                    <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-500 animate-pulse" />
                   )}
                 </div>
-                
                 <button
                   type="button"
                   onClick={() => openVirtualKeyboard('rut')}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-4 rounded-xl shadow-lg active:scale-95 transition-all"
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-4 rounded-xl shadow-md"
                 >
-                  <Keyboard className="w-5 h-5" />
+                  <Keyboard className="w-6 h-6" />
                 </button>
               </div>
-              
-              {errors.rut && (
-                <p className="mt-2 text-sm text-red-600">{errors.rut}</p>
-              )}
-              {errors.info && (
-                <p className="mt-2 text-sm text-amber-600 flex items-center">
-                  <span className="mr-1">ℹ️</span>
-                  {errors.info}
-                </p>
-              )}
+              {errors.rut && <p className="mt-2 text-sm text-red-600">{errors.rut}</p>}
+              {errors.info && <p className="mt-2 text-sm text-amber-600">{errors.info}</p>}
             </div>
 
             {/* Tipo de Documento */}
@@ -662,74 +627,56 @@ const ClienteModalTouch = ({ isOpen, onConfirm, onCancel, initialData = null }) 
                 <FileText className="w-5 h-5" />
                 <span>Tipo de Documento</span>
               </label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
                   onClick={() => setClienteData({ ...clienteData, tipo_documento: 'ticket' })}
-                  className={`px-5 py-4 rounded-xl border-2 font-medium transition-all active:scale-95 ${
+                  className={`px-4 py-4 rounded-xl border-2 font-semibold transition-all text-lg ${
                     clienteData.tipo_documento === 'ticket'
                       ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  <div className="flex items-center justify-center space-x-2 mb-1">
-                    <FileText className="w-6 h-6" />
-                    <span className="text-lg">Ticket/Boleta</span>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    El cajero decidirá
-                  </p>
+                  Ticket/Boleta
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setClienteData({ ...clienteData, tipo_documento: 'factura' })}
-                  className={`px-5 py-4 rounded-xl border-2 font-medium transition-all active:scale-95 ${
+                  className={`px-4 py-4 rounded-xl border-2 font-semibold transition-all text-lg ${
                     clienteData.tipo_documento === 'factura'
                       ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  <div className="flex items-center justify-center space-x-2 mb-1">
-                    <FileText className="w-6 h-6" />
-                    <span className="text-lg">Factura</span>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Requiere RUT
-                  </p>
+                  Factura
                 </button>
               </div>
-              
+
               {clienteData.tipo_documento === 'factura' && !clienteData.rut && (
-                <div className="mt-3 p-3 bg-amber-50 border-2 border-amber-200 rounded-xl text-amber-700">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-lg">⚠️</span>
-                    <span className="text-sm font-medium">La factura requiere RUT del cliente</span>
-                  </div>
-                </div>
+                <p className="mt-3 text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
+                  ⚠️ La factura requiere RUT del cliente
+                </p>
               )}
             </div>
           </div>
 
           {/* Botones de acción */}
-          <div className="flex gap-3 mt-8">
+          <div className="flex gap-4 mt-6">
             {onCancel && (
               <button
                 onClick={onCancel}
-                className="flex-1 px-6 py-4 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-all text-lg active:scale-95"
+                className="flex-1 px-6 py-4 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 text-lg"
               >
                 Cancelar
               </button>
             )}
             <button
               onClick={handleSubmit}
-              className="flex-1 px-6 py-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all shadow-xl hover:shadow-2xl disabled:bg-blue-300 disabled:cursor-not-allowed text-lg active:scale-95"
+              className="flex-1 px-6 py-4 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:bg-blue-300 text-lg flex items-center justify-center gap-2 shadow-lg"
               disabled={clienteData.tipo_documento === 'factura' && !clienteData.rut}
             >
-              <div className="flex items-center justify-center space-x-2">
-                <Check className="w-5 h-5" />
-                <span>{initialData ? 'Guardar Cambios' : 'Comenzar Venta'}</span>
-              </div>
+              <Check className="w-6 h-6" />
+              <span>{initialData ? 'Guardar Cambios' : 'Comenzar Venta'}</span>
             </button>
           </div>
 

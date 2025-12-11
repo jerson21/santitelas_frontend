@@ -1,9 +1,11 @@
 // ✅ ValeModal optimizado para pantallas táctiles
 import React, { useState, useEffect } from 'react';
-import { Check, Receipt, Copy, Calendar, Clock } from 'lucide-react';
+import { Check, Receipt, Copy, Calendar, Clock, Printer, Loader2 } from 'lucide-react';
+import printService from '../../services/printService';
 
-const ValeModal = ({ valeData, onClose }) => {
+const ValeModal = ({ valeData, onClose, cartItems = [] }) => {
   const [copiado, setCopiado] = useState(false);
+  const [imprimiendo, setImprimiendo] = useState(false);
 
   // Manejar ambas estructuras de datos
   const datos = valeData?.data ? valeData.data : valeData;
@@ -56,6 +58,48 @@ const ValeModal = ({ valeData, onClose }) => {
       currency: 'CLP',
       minimumFractionDigits: 0
     }).format(precio || 0);
+  };
+
+  // Reimprimir vale manualmente
+  const handleReimprimir = async () => {
+    setImprimiendo(true);
+    try {
+      // Preparar datos del vale para impresión
+      const valeParaImprimir = {
+        numero_diario: datos?.numero_diario,
+        numero_pedido: datos?.numero_pedido || datos?.numero_vale,
+        fecha: datos?.fecha_creacion || new Date().toISOString(),
+        vendedor: datos?.vendedor?.nombre || 'Vendedor',
+        tipo_documento: datos?.tipo_documento || 'ticket',
+        cliente: {
+          nombre: datos?.cliente?.nombre || null,
+          rut: datos?.cliente?.rut || null
+        },
+        productos: cartItems.map(item => ({
+          nombre: item.product?.nombre || item.nombre,
+          variante: item.variante?.color || item.color,
+          modalidad: item.modalidad,
+          unidad_medida: item.product?.unidad_medida || 'metros',
+          cantidad: parseFloat(item.quantity),
+          precio_unitario: parseFloat(item.price),
+          subtotal: parseFloat(item.total) || (item.quantity * item.price)
+        })),
+        total: parseFloat(datos?.total) || cartItems.reduce((sum, item) => sum + item.total, 0),
+        descuento: 0
+      };
+
+      const result = await printService.printVale(valeParaImprimir);
+
+      if (result.success) {
+        console.log('✅ Vale reimpreso correctamente');
+      } else {
+        alert(result.error || 'No se pudo imprimir. Verifique que Print Server esté ejecutándose.');
+      }
+    } catch (error) {
+      console.error('Error reimprimiendo:', error);
+      alert('Error al reimprimir: ' + error.message);
+    }
+    setImprimiendo(false);
   };
 
   return (
@@ -133,13 +177,35 @@ const ValeModal = ({ valeData, onClose }) => {
             </p>
           </div>
           
-          {/* Botón principal */}
-          <button
-            onClick={onClose}
-            className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
-          >
-            Continuar Vendiendo
-          </button>
+          {/* Botones */}
+          <div className="space-y-3">
+            {/* Botón Reimprimir */}
+            <button
+              onClick={handleReimprimir}
+              disabled={imprimiendo}
+              className="w-full bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50"
+            >
+              {imprimiendo ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Imprimiendo...</span>
+                </>
+              ) : (
+                <>
+                  <Printer className="w-5 h-5" />
+                  <span>Reimprimir Vale</span>
+                </>
+              )}
+            </button>
+
+            {/* Botón principal */}
+            <button
+              onClick={onClose}
+              className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
+            >
+              Continuar Vendiendo
+            </button>
+          </div>
         </div>
       </div>
     </div>

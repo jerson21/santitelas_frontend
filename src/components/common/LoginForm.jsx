@@ -45,11 +45,12 @@ const LoginForm = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <User className="w-8 h-8 text-blue-600" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-800">Santi Telas</h1>
-          <p className="text-gray-600 mt-2">Sistema de Gestión</p>
+          <img
+            src="/logo.png"
+            alt="Santi Telas"
+            className="h-14 w-auto mx-auto mb-4"
+          />
+          <p className="text-gray-600">Sistema de Gestión</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

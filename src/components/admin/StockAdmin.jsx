@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Package,
   Search,
@@ -15,7 +15,12 @@ import {
   ChevronDown,
   ChevronUp,
   TrendingDown,
-  History
+  History,
+  Plus,
+  Trash2,
+  FileSpreadsheet,
+  Upload,
+  Layers
 } from 'lucide-react';
 import ApiService from '../../services/api';
 
@@ -30,11 +35,32 @@ const StockAdmin = ({ onOpenMovimientos }) => {
   const [showSalidaModal, setShowSalidaModal] = useState(false);
   const [showTransferenciaModal, setShowTransferenciaModal] = useState(false);
   const [showAlertasModal, setShowAlertasModal] = useState(false);
+  const [showIngresoMasivoModal, setShowIngresoMasivoModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errors, setErrors] = useState({});
   const [expandedRows, setExpandedRows] = useState(new Set());
+
+  // Estado para ingreso masivo
+  const [ingresoMasivoData, setIngresoMasivoData] = useState({
+    id_bodega: '',
+    motivo: 'Recepción de contenedor',
+    referencia: '',
+    entradas: [{ id_variante_producto: '', cantidad: '', searchTerm: '' }]
+  });
+  const [searchResults, setSearchResults] = useState([]);
+  const [activeSearchIndex, setActiveSearchIndex] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimeoutRef = useRef(null);
+
+  // Estado para importación Excel
+  const [showImportExcelModal, setShowImportExcelModal] = useState(false);
+  const [importExcelData, setImportExcelData] = useState({
+    id_bodega: '',
+    file: null
+  });
+  const [importResult, setImportResult] = useState(null);
 
   // Formulario de movimiento
   const [movimientoForm, setMovimientoForm] = useState({
@@ -334,6 +360,253 @@ const StockAdmin = ({ onOpenMovimientos }) => {
       }
     });
     return Array.from(variantesMap.values());
+  };
+
+  // ========= FUNCIONES PARA INGRESO MASIVO =========
+
+  // Abrir modal de ingreso masivo
+  const handleOpenIngresoMasivo = () => {
+    setIngresoMasivoData({
+      id_bodega: selectedBodega || '',
+      motivo: 'Recepción de contenedor',
+      referencia: '',
+      entradas: [{ id_variante_producto: '', cantidad: '', searchTerm: '', productoInfo: null }]
+    });
+    setErrors({});
+    setSearchResults([]);
+    setActiveSearchIndex(null);
+    setShowIngresoMasivoModal(true);
+  };
+
+  // Buscar productos para ingreso masivo
+  const handleSearchProducto = async (searchValue, index) => {
+    if (!searchValue || searchValue.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    setActiveSearchIndex(index);
+    setSearchLoading(true);
+
+    try {
+      const response = await ApiService.buscarProductosRapido(searchValue, 20);
+      if (response.success && response.data) {
+        // Transformar los resultados para mostrar variantes
+        const resultados = [];
+        response.data.forEach(producto => {
+          if (producto.variantes && producto.variantes.length > 0) {
+            producto.variantes.forEach(variante => {
+              resultados.push({
+                id_variante_producto: variante.id_variante_producto,
+                sku: variante.sku,
+                color: variante.color,
+                medida: variante.medida,
+                productoNombre: producto.nombre || producto.modelo,
+                productoCodigo: producto.codigo
+              });
+            });
+          }
+        });
+        setSearchResults(resultados);
+      }
+    } catch (error) {
+      console.error('Error buscando productos:', error);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Seleccionar producto en ingreso masivo
+  const handleSelectProductoMasivo = (resultado, index) => {
+    const nuevasEntradas = [...ingresoMasivoData.entradas];
+    nuevasEntradas[index] = {
+      ...nuevasEntradas[index],
+      id_variante_producto: resultado.id_variante_producto,
+      searchTerm: `${resultado.productoNombre} - ${resultado.sku}${resultado.color ? ` (${resultado.color})` : ''}`,
+      productoInfo: resultado
+    };
+    setIngresoMasivoData({ ...ingresoMasivoData, entradas: nuevasEntradas });
+    setSearchResults([]);
+    setActiveSearchIndex(null);
+  };
+
+  // Agregar fila de entrada
+  const handleAddEntrada = () => {
+    setIngresoMasivoData({
+      ...ingresoMasivoData,
+      entradas: [...ingresoMasivoData.entradas, { id_variante_producto: '', cantidad: '', searchTerm: '', productoInfo: null }]
+    });
+  };
+
+  // Eliminar fila de entrada
+  const handleRemoveEntrada = (index) => {
+    if (ingresoMasivoData.entradas.length <= 1) return;
+    const nuevasEntradas = ingresoMasivoData.entradas.filter((_, i) => i !== index);
+    setIngresoMasivoData({ ...ingresoMasivoData, entradas: nuevasEntradas });
+  };
+
+  // Actualizar cantidad de entrada
+  const handleUpdateEntradaCantidad = (index, cantidad) => {
+    const nuevasEntradas = [...ingresoMasivoData.entradas];
+    nuevasEntradas[index] = { ...nuevasEntradas[index], cantidad };
+    setIngresoMasivoData({ ...ingresoMasivoData, entradas: nuevasEntradas });
+  };
+
+  // Actualizar búsqueda de entrada (con debounce para no saturar el servidor)
+  const handleUpdateEntradaSearch = (index, searchTerm) => {
+    const nuevasEntradas = [...ingresoMasivoData.entradas];
+    nuevasEntradas[index] = {
+      ...nuevasEntradas[index],
+      searchTerm,
+      id_variante_producto: '',
+      productoInfo: null
+    };
+    setIngresoMasivoData({ ...ingresoMasivoData, entradas: nuevasEntradas });
+
+    // Cancelar búsqueda anterior si existe
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Esperar 400ms antes de buscar
+    searchTimeoutRef.current = setTimeout(() => {
+      handleSearchProducto(searchTerm, index);
+    }, 400);
+  };
+
+  // Procesar ingreso masivo
+  const handleIngresoMasivo = async () => {
+    const newErrors = {};
+
+    if (!ingresoMasivoData.id_bodega) {
+      newErrors.bodega = 'Selecciona una bodega';
+    }
+    if (!ingresoMasivoData.motivo) {
+      newErrors.motivo = 'Ingresa un motivo';
+    }
+
+    // Validar entradas
+    const entradasValidas = ingresoMasivoData.entradas.filter(e =>
+      e.id_variante_producto && e.cantidad && Number(e.cantidad) > 0
+    );
+
+    if (entradasValidas.length === 0) {
+      newErrors.entradas = 'Debes agregar al menos un producto con cantidad válida';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const response = await ApiService.registrarEntradaMasivaStock({
+        id_bodega: Number(ingresoMasivoData.id_bodega),
+        motivo: ingresoMasivoData.motivo,
+        referencia: ingresoMasivoData.referencia || null,
+        entradas: entradasValidas.map(e => ({
+          id_variante_producto: Number(e.id_variante_producto),
+          cantidad: Number(e.cantidad)
+        }))
+      });
+
+      if (response.success) {
+        setSuccessMessage(`Se registraron ${entradasValidas.length} entradas de stock exitosamente`);
+        setShowIngresoMasivoModal(false);
+        selectedBodega ? loadStockBodega(selectedBodega) : loadStockGeneral();
+        setTimeout(() => setSuccessMessage(''), 5000);
+      } else {
+        setErrors({ general: response.message || 'Error al registrar entradas' });
+      }
+    } catch (error) {
+      setErrors({ general: error.message || 'Error al registrar entradas' });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Calcular resumen de ingreso masivo
+  const getResumenIngresoMasivo = () => {
+    const entradasValidas = ingresoMasivoData.entradas.filter(e =>
+      e.id_variante_producto && e.cantidad && Number(e.cantidad) > 0
+    );
+    return {
+      totalProductos: entradasValidas.length,
+      totalCantidad: entradasValidas.reduce((sum, e) => sum + Number(e.cantidad || 0), 0)
+    };
+  };
+
+  // ========= FUNCIONES PARA IMPORTACIÓN EXCEL =========
+
+  // Abrir modal de importación Excel
+  const handleOpenImportExcel = () => {
+    setImportExcelData({
+      id_bodega: selectedBodega || '',
+      file: null
+    });
+    setImportResult(null);
+    setErrors({});
+    setShowImportExcelModal(true);
+  };
+
+  // Manejar selección de archivo
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validar extensión
+      const validExtensions = ['.xlsx', '.xls'];
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      if (!validExtensions.includes(fileExtension)) {
+        setErrors({ file: 'Solo se permiten archivos Excel (.xlsx, .xls)' });
+        return;
+      }
+      setImportExcelData({ ...importExcelData, file });
+      setErrors({});
+    }
+  };
+
+  // Procesar importación Excel
+  const handleImportExcel = async () => {
+    const newErrors = {};
+
+    if (!importExcelData.id_bodega) {
+      newErrors.bodega = 'Selecciona una bodega';
+    }
+    if (!importExcelData.file) {
+      newErrors.file = 'Selecciona un archivo Excel';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', importExcelData.file);
+      formData.append('id_bodega', importExcelData.id_bodega);
+      formData.append('motivo', 'Importación desde Excel');
+
+      const response = await ApiService.importarStockExcel(formData);
+
+      if (response.success) {
+        setImportResult(response.data);
+        setSuccessMessage(`Se importaron ${response.data.total_importados} registros de stock`);
+        selectedBodega ? loadStockBodega(selectedBodega) : loadStockGeneral();
+        setTimeout(() => setSuccessMessage(''), 5000);
+      } else {
+        setErrors({ general: response.message || 'Error al importar archivo' });
+        if (response.errores) {
+          setImportResult({ errores: response.errores });
+        }
+      }
+    } catch (error) {
+      setErrors({ general: error.message || 'Error al importar archivo' });
+    } finally {
+      setProcessing(false);
+    }
   };
 
   // Modal de movimiento (entrada/salida)
@@ -674,23 +947,31 @@ const StockAdmin = ({ onOpenMovimientos }) => {
             <p className="text-gray-500">Gestiona el inventario de tus bodegas</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {alertasBajoMinimo.length > 0 && (
             <button
               onClick={() => setShowAlertasModal(true)}
-              className="flex items-center gap-2 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg hover:bg-yellow-200 transition"
+              className="flex items-center gap-2 bg-yellow-100 text-yellow-800 px-3 py-2 rounded-lg hover:bg-yellow-200 transition text-sm"
             >
-              <AlertTriangle className="w-5 h-5" />
-              {alertasBajoMinimo.length} Alertas
+              <AlertTriangle className="w-4 h-4" />
+              <span className="hidden sm:inline">{alertasBajoMinimo.length} Alertas</span>
+              <span className="sm:hidden">{alertasBajoMinimo.length}</span>
             </button>
           )}
+          <button
+            onClick={handleOpenImportExcel}
+            className="flex items-center gap-2 bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200 transition text-sm"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span className="hidden sm:inline">Importar Excel</span>
+          </button>
           {onOpenMovimientos && (
             <button
               onClick={onOpenMovimientos}
-              className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition"
+              className="flex items-center gap-2 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition text-sm"
             >
-              <History className="w-5 h-5" />
-              Historial
+              <History className="w-4 h-4" />
+              <span className="hidden sm:inline">Historial</span>
             </button>
           )}
         </div>
@@ -705,35 +986,45 @@ const StockAdmin = ({ onOpenMovimientos }) => {
       )}
 
       {/* Acciones rápidas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <button
           onClick={() => handleOpenEntrada()}
           className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition"
         >
-          <ArrowDownCircle className="w-8 h-8 text-green-600" />
+          <ArrowDownCircle className="w-8 h-8 text-green-600 flex-shrink-0" />
           <div className="text-left">
-            <p className="font-medium text-green-800">Entrada de Stock</p>
-            <p className="text-sm text-green-600">Registrar compras o devoluciones</p>
+            <p className="font-medium text-green-800">Entrada</p>
+            <p className="text-sm text-green-600 hidden sm:block">Compras o devoluciones</p>
           </div>
         </button>
         <button
           onClick={() => handleOpenSalida()}
           className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition"
         >
-          <ArrowUpCircle className="w-8 h-8 text-red-600" />
+          <ArrowUpCircle className="w-8 h-8 text-red-600 flex-shrink-0" />
           <div className="text-left">
-            <p className="font-medium text-red-800">Salida de Stock</p>
-            <p className="text-sm text-red-600">Registrar mermas o ajustes</p>
+            <p className="font-medium text-red-800">Salida</p>
+            <p className="text-sm text-red-600 hidden sm:block">Mermas o ajustes</p>
           </div>
         </button>
         <button
           onClick={() => handleOpenTransferencia()}
           className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition"
         >
-          <ArrowRightLeft className="w-8 h-8 text-blue-600" />
+          <ArrowRightLeft className="w-8 h-8 text-blue-600 flex-shrink-0" />
           <div className="text-left">
             <p className="font-medium text-blue-800">Transferencia</p>
-            <p className="text-sm text-blue-600">Mover entre bodegas</p>
+            <p className="text-sm text-blue-600 hidden sm:block">Mover entre bodegas</p>
+          </div>
+        </button>
+        <button
+          onClick={handleOpenIngresoMasivo}
+          className="flex items-center gap-3 p-4 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition"
+        >
+          <Layers className="w-8 h-8 text-purple-600 flex-shrink-0" />
+          <div className="text-left">
+            <p className="font-medium text-purple-800">Ingreso Masivo</p>
+            <p className="text-sm text-purple-600 hidden sm:block">Recepción de contenedor</p>
           </div>
         </button>
       </div>
@@ -952,6 +1243,402 @@ const StockAdmin = ({ onOpenMovimientos }) => {
         />
       )}
       {showTransferenciaModal && <TransferenciaModal />}
+
+      {/* Modal de Ingreso Masivo */}
+      {showIngresoMasivoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
+          <div className={`bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[98vh] flex flex-col ${activeSearchIndex !== null ? '' : 'overflow-hidden'}`}>
+            {/* Header compacto */}
+            <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0 bg-purple-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Layers className="w-5 h-5 text-purple-600" />
+                  <h3 className="text-lg font-bold text-gray-800">Ingreso Masivo</h3>
+                  {getResumenIngresoMasivo().totalProductos > 0 && (
+                    <span className="bg-purple-600 text-white text-xs px-2 py-0.5 rounded-full">
+                      {getResumenIngresoMasivo().totalProductos} items | {getResumenIngresoMasivo().totalCantidad.toFixed(1)} mts
+                    </span>
+                  )}
+                </div>
+                <button onClick={() => setShowIngresoMasivoModal(false)} className="text-gray-500 hover:text-gray-700 p-1">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Campos comunes - una sola línea compacta */}
+            <div className="px-4 py-2 border-b border-gray-200 flex-shrink-0 bg-gray-50">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Bodegas */}
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-500">Bodega:</span>
+                  {bodegas.map(b => (
+                    <button
+                      key={b.id_bodega}
+                      type="button"
+                      onClick={() => setIngresoMasivoData({ ...ingresoMasivoData, id_bodega: String(b.id_bodega) })}
+                      className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                        Number(ingresoMasivoData.id_bodega) === b.id_bodega
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
+                      }`}
+                    >
+                      {b.nombre}
+                    </button>
+                  ))}
+                </div>
+                <div className="h-4 w-px bg-gray-300"></div>
+                {/* Motivo */}
+                <select
+                  value={ingresoMasivoData.motivo}
+                  onChange={(e) => setIngresoMasivoData({ ...ingresoMasivoData, motivo: e.target.value })}
+                  className="px-2 py-1 border border-gray-300 rounded text-xs bg-white"
+                >
+                  <option value="Recepción de contenedor">Recepción contenedor</option>
+                  <option value="Compra de mercadería">Compra mercadería</option>
+                  <option value="Devolución de cliente">Devolución</option>
+                  <option value="Ajuste de inventario">Ajuste inventario</option>
+                </select>
+                {/* Referencia */}
+                <input
+                  type="text"
+                  value={ingresoMasivoData.referencia}
+                  onChange={(e) => setIngresoMasivoData({ ...ingresoMasivoData, referencia: e.target.value })}
+                  className="px-2 py-1 border border-gray-300 rounded text-xs w-40"
+                  placeholder="Ref: #contenedor..."
+                />
+              </div>
+              {(errors.bodega || errors.motivo) && (
+                <p className="text-red-500 text-xs mt-1">{errors.bodega || errors.motivo}</p>
+              )}
+            </div>
+
+            {/* Body con scroll - área principal de productos */}
+            <div className={`p-3 flex-1 ${activeSearchIndex !== null ? 'overflow-visible' : 'overflow-y-auto'}`}>
+              {errors.general && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg flex items-center gap-2 mb-3">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm">{errors.general}</span>
+                </div>
+              )}
+
+              {errors.entradas && (
+                <p className="text-red-500 text-sm mb-2">{errors.entradas}</p>
+              )}
+
+              <div className="space-y-1">
+                {/* Header - solo en desktop */}
+                <div className="hidden sm:grid sm:grid-cols-12 gap-2 text-xs font-medium text-gray-500 px-2 pb-1 border-b border-gray-200">
+                  <div className="col-span-8">Producto (buscar por nombre, SKU, tipo o color)</div>
+                  <div className="col-span-2">Metros</div>
+                  <div className="col-span-2 text-center">Acción</div>
+                </div>
+
+                {/* Filas de productos */}
+                {ingresoMasivoData.entradas.map((entrada, index) => (
+                  <div
+                    key={index}
+                    className="grid grid-cols-1 sm:grid-cols-12 gap-2 py-1.5 px-2 bg-white border-b border-gray-100 hover:bg-gray-50"
+                  >
+                    {/* Búsqueda de producto */}
+                    <div className="sm:col-span-8 relative">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                          type="text"
+                          value={entrada.searchTerm}
+                          onChange={(e) => handleUpdateEntradaSearch(index, e.target.value)}
+                          onFocus={() => setActiveSearchIndex(index)}
+                          onBlur={() => setTimeout(() => setActiveSearchIndex(null), 200)}
+                          className={`w-full pl-8 pr-8 py-1.5 border rounded text-sm ${
+                            entrada.id_variante_producto ? 'bg-green-50 border-green-300' : 'border-gray-300'
+                          }`}
+                          placeholder="Buscar por nombre, SKU, tipo o color..."
+                        />
+                        {entrada.id_variante_producto && (
+                          <Check className="absolute right-2 top-1/2 transform -translate-y-1/2 text-green-600 w-4 h-4" />
+                        )}
+                      </div>
+
+                      {/* Dropdown de resultados */}
+                      {activeSearchIndex === index && searchResults.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                          {searchLoading ? (
+                            <div className="p-3 text-center text-gray-500">
+                              <RefreshCw className="w-4 h-4 animate-spin inline mr-2" />
+                              Buscando...
+                            </div>
+                          ) : (
+                            searchResults.map((resultado) => (
+                              <button
+                                key={resultado.id_variante_producto}
+                                type="button"
+                                onClick={() => handleSelectProductoMasivo(resultado, index)}
+                                className="w-full text-left px-3 py-2 hover:bg-purple-50 border-b border-gray-100 last:border-0"
+                              >
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-800">{resultado.productoNombre}</p>
+                                    <p className="text-xs text-gray-500">
+                                      {resultado.sku}
+                                      {resultado.color && <span className="ml-2 px-1.5 py-0.5 bg-gray-100 rounded">{resultado.color}</span>}
+                                    </p>
+                                  </div>
+                                </div>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Cantidad */}
+                    <div className="sm:col-span-2">
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={entrada.cantidad}
+                        onChange={(e) => handleUpdateEntradaCantidad(index, e.target.value)}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-center"
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    {/* Botones */}
+                    <div className="sm:col-span-2 flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveEntrada(index)}
+                        disabled={ingresoMasivoData.entradas.length <= 1}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded disabled:opacity-30"
+                        title="Eliminar"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      {index === ingresoMasivoData.entradas.length - 1 && (
+                        <button
+                          type="button"
+                          onClick={handleAddEntrada}
+                          className="p-1.5 text-purple-600 hover:bg-purple-50 rounded"
+                          title="Agregar fila"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Botón agregar más filas */}
+                <button
+                  type="button"
+                  onClick={handleAddEntrada}
+                  className="mt-2 w-full py-1.5 border border-dashed border-gray-300 rounded text-gray-400 hover:border-purple-400 hover:text-purple-600 transition flex items-center justify-center gap-1 text-xs"
+                >
+                  <Plus className="w-3 h-3" />
+                  Agregar producto
+                </button>
+              </div>
+            </div>
+
+            {/* Footer compacto */}
+            <div className="px-4 py-2 border-t border-gray-200 flex items-center justify-between flex-shrink-0 bg-gray-50">
+              <button
+                onClick={() => setShowIngresoMasivoModal(false)}
+                className="px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleIngresoMasivo}
+                disabled={processing || getResumenIngresoMasivo().totalProductos === 0}
+                className="px-4 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                {processing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Registrar ({getResumenIngresoMasivo().totalProductos})
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Importación Excel */}
+      {showImportExcelModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[95vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <FileSpreadsheet className="w-6 h-6 text-green-600" />
+                  Importar Stock desde Excel
+                </h3>
+                <button
+                  onClick={() => setShowImportExcelModal(false)}
+                  className="text-gray-500 hover:text-gray-700 p-1"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+              {errors.general && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                  <span className="text-sm">{errors.general}</span>
+                </div>
+              )}
+
+              {/* Instrucciones */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-medium text-blue-800 mb-2">Formato del archivo</h4>
+                <p className="text-sm text-blue-700 mb-2">
+                  El archivo Excel debe tener las siguientes columnas en la primera fila:
+                </p>
+                <ul className="text-sm text-blue-600 list-disc list-inside space-y-1">
+                  <li><strong>SKU</strong> o <strong>Codigo</strong>: Código del producto</li>
+                  <li><strong>Cantidad</strong> o <strong>Metros</strong>: Cantidad a ingresar</li>
+                </ul>
+              </div>
+
+              {/* Bodega */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Bodega destino *</label>
+                <div className="flex flex-wrap gap-2">
+                  {bodegas.map(b => (
+                    <button
+                      key={b.id_bodega}
+                      type="button"
+                      onClick={() => setImportExcelData({ ...importExcelData, id_bodega: String(b.id_bodega) })}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+                        Number(importExcelData.id_bodega) === b.id_bodega
+                          ? 'bg-green-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
+                      }`}
+                    >
+                      <Warehouse className="w-4 h-4" />
+                      {b.nombre}
+                    </button>
+                  ))}
+                </div>
+                {errors.bodega && <p className="text-red-500 text-sm mt-1">{errors.bodega}</p>}
+              </div>
+
+              {/* Selector de archivo */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Archivo Excel *</label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    id="excel-file-input"
+                  />
+                  <label
+                    htmlFor="excel-file-input"
+                    className={`flex items-center justify-center gap-2 w-full py-4 border-2 border-dashed rounded-lg cursor-pointer transition ${
+                      importExcelData.file
+                        ? 'border-green-400 bg-green-50'
+                        : 'border-gray-300 hover:border-green-400 hover:bg-green-50'
+                    }`}
+                  >
+                    {importExcelData.file ? (
+                      <>
+                        <Check className="w-5 h-5 text-green-600" />
+                        <span className="text-green-700 font-medium">{importExcelData.file.name}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-5 h-5 text-gray-400" />
+                        <span className="text-gray-500">Haz clic para seleccionar archivo</span>
+                      </>
+                    )}
+                  </label>
+                </div>
+                {errors.file && <p className="text-red-500 text-sm mt-1">{errors.file}</p>}
+              </div>
+
+              {/* Resultados de importación */}
+              {importResult && (
+                <div className="space-y-3">
+                  {importResult.total_importados > 0 && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h4 className="font-medium text-green-800 mb-2">Importación exitosa</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-green-600">Registros:</span>
+                          <span className="ml-2 font-medium">{importResult.total_importados}</span>
+                        </div>
+                        <div>
+                          <span className="text-green-600">Total metros:</span>
+                          <span className="ml-2 font-medium">{importResult.total_cantidad?.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {importResult.errores && importResult.errores.length > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h4 className="font-medium text-yellow-800 mb-2">
+                        Errores encontrados ({importResult.errores.length})
+                      </h4>
+                      <div className="max-h-32 overflow-y-auto space-y-1">
+                        {importResult.errores.map((err, idx) => (
+                          <p key={idx} className="text-sm text-yellow-700">
+                            Fila {err.fila}: {err.sku ? `SKU "${err.sku}" - ` : ''}{err.error}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 sm:p-6 border-t border-gray-200 flex flex-col sm:flex-row justify-end gap-3 flex-shrink-0 bg-gray-50">
+              <button
+                onClick={() => setShowImportExcelModal(false)}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg order-2 sm:order-1"
+              >
+                {importResult?.total_importados > 0 ? 'Cerrar' : 'Cancelar'}
+              </button>
+              {!importResult?.total_importados && (
+                <button
+                  onClick={handleImportExcel}
+                  disabled={processing || !importExcelData.file || !importExcelData.id_bodega}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
+                >
+                  {processing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Importando...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Importar
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -4,7 +4,8 @@ import ProductModal from './ProductModal';
 import ValeModal from './ValeModal';
 import ClienteModal from './ClienteModal';
 import ApiService from '../../services/api';
-import { Plus, ArrowLeft, Loader2, UserCheck, Home, ChevronRight, Search, Package, Layers, Palette, X, Edit, UserPlus } from 'lucide-react';
+import printService from '../../services/printService';
+import { Loader2, UserCheck, ChevronRight, Search, X, Edit, UserPlus } from 'lucide-react';
 
 // Función debounce para optimizar búsquedas
 const debounce = (func, wait) => {
@@ -227,16 +228,16 @@ const handleSearch = async (query) => {
   }, [showSearchResults]);
 
   return (
-    <div className="relative w-96 search-container">
+    <div className="relative w-full search-container">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
         <input
           type="text"
-          placeholder="Buscar: LINO GUCCI o GUCCI CRUDO..."
+          placeholder="Buscar producto..."
           value={searchValue}
           onChange={(e) => handleSearchChange(e.target.value)}
           onFocus={() => searchValue.trim().length >= 2 && searchResults.length > 0 && setShowSearchResults(true)}
-          className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full pl-9 sm:pl-10 pr-9 sm:pr-10 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           autoComplete="off"
         />
         {searchLoading && (
@@ -312,97 +313,6 @@ const handleSearch = async (query) => {
   );
 };
 
-// Componente de navegación mejorado
-const NavigationBar = React.memo(({ 
-  currentLevel, selectedCategory, selectedType, selectedModel, currentVariantType,
-  breadcrumb, goToCategories, onProductSelect
-}) => {
-  const getIcon = (level) => {
-    switch(level) {
-      case 'home': return <Home className="w-5 h-5" />;
-      case 'categories': return <Package className="w-5 h-5" />;
-      case 'types': return <Layers className="w-5 h-5" />;
-      case 'models': return <Palette className="w-5 h-5" />;
-      default: return null;
-    }
-  };
-
-  return (
-    <div className="bg-white border-b sticky top-0 z-30 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 py-3">
-        <div className="flex items-center justify-between gap-4">
-          {/* Breadcrumb mejorado */}
-          <div className="flex items-center space-x-2 flex-1">
-            {/* Botón Inicio siempre visible */}
-            <button
-              onClick={goToCategories}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                currentLevel === 'categories' 
-                  ? 'bg-blue-600 text-white shadow-md' 
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-              }`}
-            >
-              <Home className="w-5 h-5" />
-              <span>Inicio</span>
-            </button>
-
-            {/* Separador */}
-            {breadcrumb.length > 0 && (
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            )}
-
-            {/* Breadcrumb items */}
-            {breadcrumb.map((item, index) => (
-              <React.Fragment key={index}>
-                <button
-                  onClick={item.action}
-                  className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium text-gray-700 transition-all"
-                >
-                  {getIcon(index === 0 ? 'categories' : index === 1 ? 'types' : 'models')}
-                  <span>{item.label}</span>
-                </button>
-                {index < breadcrumb.length - 1 && (
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
-                )}
-              </React.Fragment>
-            ))}
-
-            {/* Nivel actual */}
-            {currentLevel !== 'categories' && (
-              <>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
-                <div className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium shadow-md">
-                  {currentLevel === 'types' && (
-                    <>
-                      <Layers className="w-5 h-5" />
-                      <span>Tipos de {selectedCategory?.nombre}</span>
-                    </>
-                  )}
-                  {currentLevel === 'models' && (
-                    <>
-                      <Palette className="w-5 h-5" />
-                      <span>Modelos de {selectedType?.name}</span>
-                    </>
-                  )}
-                  {currentLevel === 'options' && (
-                    <>
-                      <Palette className="w-5 h-5" />
-                      <span>{currentVariantType.charAt(0).toUpperCase() + currentVariantType.slice(1)} de {selectedModel?.name}</span>
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Componente de búsqueda */}
-          <SearchBox onProductSelect={onProductSelect} />
-        </div>
-      </div>
-    </div>
-  );
-});
-
 const VendedorDashboard = () => {
   // Estado para el modal de cliente y datos del cliente
   const [showClienteModal, setShowClienteModal] = useState(true);
@@ -443,6 +353,7 @@ const VendedorDashboard = () => {
   const [showProductModal, setShowProductModal] = useState(false);
   const [showValeModal, setShowValeModal] = useState(false);
   const [valeData, setValeData] = useState(null);
+  const [lastCartItems, setLastCartItems] = useState([]); // Para reimprimir
   const [loading, setLoading] = useState(false);
   const [breadcrumb, setBreadcrumb] = useState([]);
   const [currentVariantType, setCurrentVariantType] = useState('opción');
@@ -757,6 +668,22 @@ const handleProductSelectFromSearch = async (product) => {
     loadCategories();
   }, []);
 
+  // ✅ LISTENER PARA SESIÓN EXPIRADA - Redirigir al login
+  useEffect(() => {
+    const handleSessionExpired = (event) => {
+      console.warn('🚪 Sesión expirada detectada en VendedorDashboard');
+      alert(event.detail?.message || 'Su sesión ha expirado. Será redirigido al login.');
+      // Recargar la página para que el App detecte que no hay sesión y muestre login
+      window.location.reload();
+    };
+
+    window.addEventListener('session-expired', handleSessionExpired);
+
+    return () => {
+      window.removeEventListener('session-expired', handleSessionExpired);
+    };
+  }, []);
+
   // Cargar categorías del endpoint /vendedor/categorias
   const loadCategories = async () => {
     try {
@@ -1017,13 +944,23 @@ const handleProductSelectFromSearch = async (product) => {
 
       if (response.success && Array.isArray(response.data)) {
         const productos = response.data;
-        
         const productsByType = groupProductsByType(productos);
-        setTypes(productsByType);
+
+        // Guardar estado común
         setAllProducts(productos);
         setSelectedCategory({ id: categoryId, nombre: categoryName });
-        setCurrentLevel('types');
-        setBreadcrumb([{ label: 'Categorías', action: goToCategories }]);
+
+        // Si solo hay 1 tipo, saltar directamente a modelos
+        if (productsByType.length === 1) {
+          const unicoTipo = productsByType[0];
+          setTypes(productsByType); // Guardar para referencia del breadcrumb
+          loadModelsByType(unicoTipo, unicoTipo.name);
+        } else {
+          // Múltiples tipos, mostrar la pantalla de tipos
+          setTypes(productsByType);
+          setCurrentLevel('types');
+          setBreadcrumb([{ label: 'Categorías', action: goToCategories }]);
+        }
       } else {
         setTypes([]);
         setAllProducts([]);
@@ -1042,11 +979,18 @@ const handleProductSelectFromSearch = async (product) => {
 
     setModels(modelsByGroup);
     setSelectedType({ name: typeName, products: products });
-    setCurrentLevel('models');
-    setBreadcrumb([
-      { label: 'Categorías', action: goToCategories },
-      { label: `Tipos de ${selectedCategory.nombre}`, action: goToTypes },
-    ]);
+
+    // Si solo hay 1 modelo, saltar directamente a variantes
+    if (modelsByGroup.length === 1) {
+      const unicoModelo = modelsByGroup[0];
+      loadVariantsByModel(unicoModelo, unicoModelo.name);
+    } else {
+      setCurrentLevel('models');
+      setBreadcrumb([
+        { label: 'Categorías', action: goToCategories },
+        { label: `Tipos de ${selectedCategory.nombre}`, action: goToTypes },
+      ]);
+    }
   };
 
   const loadVariantsByModel = (modelData, modelName) => {
@@ -1057,12 +1001,19 @@ const handleProductSelectFromSearch = async (product) => {
     setOptions(variantsByGroup);
     setSelectedModel({ name: modelName, products: products });
     setCurrentVariantType(variantAttribute);
-    setCurrentLevel('options');
-    setBreadcrumb([
-      { label: 'Categorías', action: goToCategories },
-      { label: `Tipos de ${selectedCategory.nombre}`, action: goToTypes },
-      { label: `Modelos de ${selectedType.name}`, action: goToModels },
-    ]);
+
+    // Si solo hay 1 variante, abrir directamente el modal del producto
+    if (variantsByGroup.length === 1) {
+      const unicaVariante = variantsByGroup[0];
+      selectVariant(unicaVariante, unicaVariante.name);
+    } else {
+      setCurrentLevel('options');
+      setBreadcrumb([
+        { label: 'Categorías', action: goToCategories },
+        { label: `Tipos de ${selectedCategory.nombre}`, action: goToTypes },
+        { label: `Modelos de ${selectedType.name}`, action: goToModels },
+      ]);
+    }
   };
 
   const selectVariant = async (variantData, variantName) => {
@@ -1246,6 +1197,28 @@ const handleProductSelectFromSearch = async (product) => {
         );
 
         if (response.success) {
+          // ✅ IMPRESIÓN AUTOMÁTICA DEL VALE ACTUALIZADO
+          try {
+            const cartTotal = cart.reduce((sum, item) => sum + item.total, 0);
+            const valeParaImprimir = printService.formatValeFromPedido(response, {
+              cart,
+              cartTotal,
+              cliente: clienteActual,
+              documentType,
+              vendedor: 'Vendedor'
+            });
+
+            const printResult = await printService.printVale(valeParaImprimir);
+
+            if (printResult.success) {
+              console.log('✅ Vale actualizado impreso correctamente');
+            } else {
+              console.warn('⚠️ Vale actualizado pero no se pudo imprimir:', printResult.error);
+            }
+          } catch (printError) {
+            console.error('Error en impresión automática:', printError);
+          }
+
           alert(`✅ Productos agregados al vale ${valeEnEdicion.numero_pedido || valeEnEdicion.numero_vale}`);
           setCart([]);
           setValeEnEdicion(null); // Limpiar vale en edición
@@ -1274,8 +1247,33 @@ const handleProductSelectFromSearch = async (product) => {
         const response = await ApiService.createPedidoRapido(pedidoData);
 
         if (response.success) {
+          // Guardar carrito para reimprimir
+          setLastCartItems([...cart]);
+
           setValeData(response.data);
           setShowValeModal(true);
+
+          // ✅ IMPRESIÓN AUTOMÁTICA DEL VALE
+          try {
+            const valeParaImprimir = printService.formatValeFromPedido(response, {
+              cart,
+              cartTotal: cart.reduce((sum, item) => sum + item.total, 0),
+              cliente: clienteActual,
+              documentType,
+              vendedor: 'Vendedor' // TODO: obtener nombre del vendedor logueado
+            });
+
+            const printResult = await printService.printVale(valeParaImprimir);
+
+            if (!printResult.success) {
+              console.warn('⚠️ Vale creado pero no se pudo imprimir:', printResult.error);
+              // No mostrar error al usuario, el modal tiene botón de reimprimir
+            }
+          } catch (printError) {
+            console.error('Error en impresión automática:', printError);
+            // No bloquear el flujo si falla la impresión
+          }
+
           setCart([]);
         } else {
           console.error('Error al crear vale:', response);
@@ -1295,63 +1293,6 @@ const handleProductSelectFromSearch = async (product) => {
     reiniciarVenta();
   };
 
-  // Componente de info del cliente
-  const ClienteInfoDisplay = ({ clienteActual, documentType, onNewClient, onEditClient }) => {
-    if (!clienteActual) return null;
-
-    return (
-      <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <UserCheck className="w-6 h-6 text-blue-600" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">Cliente actual:</p>
-              <div className="flex items-center space-x-4">
-                <p className="text-lg font-bold text-gray-900">
-                  {clienteActual.nombre || 'Cliente sin identificar'}
-                </p>
-                {clienteActual.rut && (
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">RUT:</span>
-                    <span className="font-mono bg-white px-2 py-1 rounded border text-sm font-semibold">
-                      {clienteActual.rut}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-600 mb-3">
-              Documento: <span className="font-bold capitalize text-blue-600">{documentType}</span>
-            </div>
-            <div className="flex gap-2 justify-end">
-              {/* Botón EDITAR Cliente */}
-              <button
-                onClick={onEditClient}
-                className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-lg transition-colors flex items-center gap-1 font-medium shadow-sm hover:shadow"
-                title="Editar datos del cliente sin perder el carrito"
-              >
-                <Edit className="w-4 h-4" />
-                <span>Editar</span>
-              </button>
-
-              {/* Botón NUEVA VENTA */}
-              <button
-                onClick={onNewClient}
-                className="text-sm bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded-lg transition-colors flex items-center gap-1 font-medium shadow-sm hover:shadow"
-                title="Iniciar una nueva venta (se perderá el carrito actual)"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>Nueva Venta</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Modal de Cliente */}
@@ -1362,7 +1303,7 @@ const handleProductSelectFromSearch = async (product) => {
         initialData={modoEdicion ? clienteActual : null}
       />
 
-      {/* Header */}
+      {/* Header con Inicio, Buscador y Carrito */}
       <VendedorHeader
         cartItems={cart}
         cartTotal={cart.reduce((sum, item) => sum + item.total, 0)}
@@ -1373,35 +1314,64 @@ const handleProductSelectFromSearch = async (product) => {
         clienteActual={clienteActual}
         onNewClient={reiniciarVenta}
         onAgregarProductosAVale={handleAgregarProductosAVale}
+        onGoHome={goToCategories}
+        currentLevel={currentLevel}
+        searchComponent={<SearchBox onProductSelect={handleProductSelectFromSearch} />}
       />
 
-      {/* Barra de navegación mejorada */}
-      {!showClienteModal && (
-        <NavigationBar 
-          currentLevel={currentLevel}
-          selectedCategory={selectedCategory}
-          selectedType={selectedType}
-          selectedModel={selectedModel}
-          currentVariantType={currentVariantType}
-          breadcrumb={breadcrumb}
-          goToCategories={goToCategories}
-          onProductSelect={handleProductSelectFromSearch}
-        />
+      {/* Breadcrumb de navegación */}
+      {!showClienteModal && breadcrumb.length > 0 && (
+        <div className="bg-gray-50 border-b px-4 py-2">
+          <div className="max-w-7xl mx-auto flex items-center space-x-2 text-sm">
+            <span className="text-gray-500">Navegación:</span>
+            {breadcrumb.map((item, index) => (
+              <React.Fragment key={index}>
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <button
+                  onClick={item.action}
+                  className="px-2 py-1 bg-white hover:bg-gray-100 rounded text-gray-600 hover:text-gray-800"
+                >
+                  {item.label}
+                </button>
+              </React.Fragment>
+            ))}
+            <ChevronRight className="w-4 h-4 text-gray-400" />
+            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
+              {currentLevel === 'types' && selectedCategory?.nombre}
+              {currentLevel === 'models' && selectedType?.name}
+              {currentLevel === 'options' && selectedModel?.name}
+            </span>
+          </div>
+        </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Info del cliente actual */}
-        <ClienteInfoDisplay
-          clienteActual={clienteActual}
-          documentType={documentType}
-          onNewClient={reiniciarVenta}
-          onEditClient={handleEditarCliente}
-        />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        {/* Info del cliente compacta */}
+        {clienteActual && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <UserCheck className="w-5 h-5 text-blue-600" />
+              <span className="text-sm text-gray-700">
+                <strong>{clienteActual.nombre || 'Sin identificar'}</strong>
+                {clienteActual.rut && <span className="ml-2 font-mono text-xs bg-white px-2 py-0.5 rounded border">{clienteActual.rut}</span>}
+                <span className="ml-3 text-blue-600 font-medium capitalize">({documentType})</span>
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleEditarCliente} className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded flex items-center gap-1">
+                <Edit className="w-3 h-3" /> Editar
+              </button>
+              <button onClick={reiniciarVenta} className="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded flex items-center gap-1">
+                <UserPlus className="w-3 h-3" /> Nueva
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 1. CATEGORÍAS */}
         {currentLevel === 'categories' && (
           <div className="text-center">
-            <h2 className="text-5xl font-bold text-gray-800 mb-6">
+            <h2 className="text-4xl font-bold text-gray-800 mb-4">
               Seleccione una Categoría
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
@@ -1526,9 +1496,10 @@ const handleProductSelectFromSearch = async (product) => {
       )}
 
       {showValeModal && (
-        <ValeModal 
-          valeData={valeData} 
+        <ValeModal
+          valeData={valeData}
           onClose={handleValeModalClose}
+          cartItems={lastCartItems}
         />
       )}
     </div>

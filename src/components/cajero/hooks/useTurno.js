@@ -7,6 +7,7 @@ const useTurno = (showToast) => {
   const [turnoAbierto, setTurnoAbierto] = useState(false);
   const [turnoInfo, setTurnoInfo] = useState(null);
   const [arqueoLoading, setArqueoLoading] = useState(false);
+  const [retiroLoading, setRetiroLoading] = useState(false);
 
   // Verificar estado del turno
   const checkEstado = useCallback(async () => {
@@ -96,6 +97,44 @@ const useTurno = (showToast) => {
     }
   }, [turnoAbierto]);
 
+  // Retiro de caja
+  const retiroCaja = useCallback(async (monto, motivo = '') => {
+    if (!turnoAbierto) {
+      throw new Error('Debes abrir el turno para realizar un retiro');
+    }
+
+    setRetiroLoading(true);
+    try {
+      const resp = await apiService.retiroCaja(monto, motivo);
+      if (resp.success) {
+        // Actualizar info del turno después del retiro
+        await checkEstado();
+        return resp.data;
+      } else {
+        throw new Error(resp.message || 'No se pudo registrar el retiro');
+      }
+    } catch (error) {
+      console.error('Error en retiro de caja:', error);
+      throw error;
+    } finally {
+      setRetiroLoading(false);
+    }
+  }, [turnoAbierto, checkEstado]);
+
+  // Obtener historial de retiros del turno
+  const getRetirosTurno = useCallback(async () => {
+    try {
+      const resp = await apiService.getRetirosTurno();
+      if (resp.success) {
+        return resp.data;
+      }
+      return { retiros: [], total_retiros: 0 };
+    } catch (error) {
+      console.error('Error obteniendo retiros:', error);
+      return { retiros: [], total_retiros: 0 };
+    }
+  }, []);
+
   // Obtener resumen del turno actual
   const getResumenTurno = useCallback(async () => {
     if (!turnoAbierto) return null;
@@ -163,6 +202,7 @@ const useTurno = (showToast) => {
     turnoAbierto,
     turnoInfo,
     arqueoLoading,
+    retiroLoading,
 
     // Acciones principales
     actions: {
@@ -171,7 +211,11 @@ const useTurno = (showToast) => {
       cerrarTurno,
       arqueoIntermedio,
       arqueoLoading,
-      
+      // Retiros de caja
+      retiroCaja,
+      retiroLoading,
+      getRetirosTurno,
+
       // Funciones auxiliares
       getResumenTurno,
       getHistorialArqueos,

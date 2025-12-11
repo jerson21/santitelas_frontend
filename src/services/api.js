@@ -30,6 +30,24 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
+
+      // ✅ MANEJO ESPECIAL DE 401 - SESIÓN EXPIRADA
+      if (response.status === 401) {
+        console.warn('⚠️ Sesión expirada - Token inválido o expirado');
+
+        // Limpiar token y datos de usuario
+        this.token = null;
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+
+        // Disparar evento personalizado para que los componentes puedan reaccionar
+        window.dispatchEvent(new CustomEvent('session-expired', {
+          detail: { message: 'Su sesión ha expirado. Por favor inicie sesión nuevamente.' }
+        }));
+
+        throw new Error('Sesión expirada. Redirigiendo al login...');
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -696,11 +714,51 @@ async actualizarPreciosMasivo(actualizacionData) {
     return await this.request(`/stock/bajo-minimo${queryParams ? `?${queryParams}` : ''}`);
   }
 
+  // Entrada masiva de stock (para recepciones de contenedores)
+  async registrarEntradaMasivaStock(data) {
+    return await this.request('/stock/entrada-masiva', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Importar stock desde Excel
+  async importarStockExcel(formData) {
+    const url = `${this.baseURL}/stock/importar-excel`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || `Error ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error importando stock desde Excel:', error);
+      throw error;
+    }
+  }
+
   // ===========================
   // USUARIOS ADMIN
   // ===========================
-  async getUsuarios() {
-    return await this.request('/admin/usuarios');
+  async getUsuarios(params = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page);
+    if (params.limit) queryParams.append('limit', params.limit);
+    if (params.search) queryParams.append('search', params.search);
+    if (params.activo !== undefined) queryParams.append('activo', params.activo);
+    const queryString = queryParams.toString();
+    return await this.request(`/admin/usuarios${queryString ? `?${queryString}` : ''}`);
   }
 // Obtener lista de roles
  async getRoles() {
@@ -720,10 +778,21 @@ async actualizarPreciosMasivo(actualizacionData) {
   // ===========================
 
   /**
-   * Obtener lista de clientes con estadísticas
+   * Obtener lista de clientes con estadísticas y paginación
+   * @param {Object} params - Parámetros de paginación y filtrado
+   * @param {number} params.page - Número de página (default: 1)
+   * @param {number} params.limit - Registros por página (default: 20)
+   * @param {string} params.search - Término de búsqueda
+   * @param {boolean} params.activo - Filtrar por estado activo/inactivo
    */
-  async getClientesAdmin() {
-    return await this.request('/admin/clientes');
+  async getClientesAdmin(params = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page);
+    if (params.limit) queryParams.append('limit', params.limit);
+    if (params.search) queryParams.append('search', params.search);
+    if (params.activo !== undefined) queryParams.append('activo', params.activo);
+    const queryString = queryParams.toString();
+    return await this.request(`/admin/clientes${queryString ? `?${queryString}` : ''}`);
   }
 
   /**
@@ -1296,6 +1365,33 @@ async procesarVale(numeroVale, datosVenta) {
     }
   }
 
+  // =============================================
+  // RETIROS DE CAJA
+  // =============================================
+
+  async retiroCaja(monto, motivo = '') {
+    try {
+      const response = await this.request('/cajero/retiro-caja', {
+        method: 'POST',
+        body: JSON.stringify({ monto, motivo }),
+      });
+      return response;
+    } catch (error) {
+      console.error('❌ Error en retiro de caja:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  async getRetirosTurno() {
+    try {
+      const response = await this.request('/cajero/retiros');
+      return response;
+    } catch (error) {
+      console.error('❌ Error obteniendo retiros:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
   async getEstadoTurno() {
     try {
       const response = await this.request('/cajero/estado-turno');
@@ -1587,6 +1683,141 @@ async procesarVale(numeroVale, datosVenta) {
   // ===========================
   async healthCheck() {
     return await this.request('/test');
+  }
+
+  // ===========================
+  // DTE - DOCUMENTOS TRIBUTARIOS ELECTRÓNICOS (Relbase)
+  // ===========================
+
+  /**
+   * Verificar conexión con Relbase
+   */
+  async verificarConexionDTE() {
+    try {
+      const response = await this.request('/dte/verificar');
+      return response;
+    } catch (error) {
+      console.error('❌ Error verificando conexión DTE:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Emitir boleta electrónica
+   * @param {Array} productos - Array de productos con name, price, quantity
+   * @param {Object} opciones - Opciones adicionales (comment, type_payment_id)
+   */
+  async emitirBoleta(productos, opciones = {}) {
+    try {
+      console.log('🧾 Emitiendo boleta electrónica...');
+      console.log('📦 Productos:', productos);
+
+      const response = await this.request('/dte/boleta', {
+        method: 'POST',
+        body: JSON.stringify({
+          productos,
+          ...opciones
+        })
+      });
+
+      console.log('📥 Respuesta DTE boleta:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error emitiendo boleta:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Emitir factura electrónica
+   * @param {Array} productos - Array de productos con name, price, quantity
+   * @param {Object} cliente - Datos del cliente (customer_id o rut, name, address, etc)
+   * @param {Object} opciones - Opciones adicionales (comment, type_payment_id)
+   */
+  async emitirFactura(productos, cliente, opciones = {}) {
+    try {
+      console.log('🧾 Emitiendo factura electrónica...');
+      console.log('📦 Productos:', productos);
+      console.log('👤 Cliente:', cliente);
+
+      const response = await this.request('/dte/factura', {
+        method: 'POST',
+        body: JSON.stringify({
+          productos,
+          cliente,
+          ...opciones
+        })
+      });
+
+      console.log('📥 Respuesta DTE factura:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error emitiendo factura:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Obtener lista de boletas
+   * @param {number} page - Número de página
+   */
+  async listarBoletas(page = 1) {
+    try {
+      const response = await this.request(`/dte/boletas?page=${page}`);
+      return response;
+    } catch (error) {
+      console.error('❌ Error listando boletas:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Obtener lista de facturas
+   * @param {number} page - Número de página
+   */
+  async listarFacturas(page = 1) {
+    try {
+      const response = await this.request(`/dte/facturas?page=${page}`);
+      return response;
+    } catch (error) {
+      console.error('❌ Error listando facturas:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Guardar datos DTE en la venta (para permitir reimpresión)
+   * @param {string} numeroVenta - Número de la venta
+   * @param {Object} datosdte - Datos del DTE (folio, timbre, etc)
+   */
+  async guardarDTEVenta(numeroVenta, datosDTE) {
+    try {
+      console.log(`💾 Guardando DTE para venta ${numeroVenta}...`);
+      const response = await this.request(`/cajero/ventas/${numeroVenta}/dte`, {
+        method: 'POST',
+        body: JSON.stringify(datosDTE)
+      });
+      console.log('📥 Respuesta guardar DTE:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error guardando DTE:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Obtener datos para reimprimir boleta
+   * @param {string} numeroVenta - Número de la venta
+   */
+  async obtenerDatosReimprimir(numeroVenta) {
+    try {
+      console.log(`🖨️ Obteniendo datos para reimprimir venta ${numeroVenta}...`);
+      const response = await this.request(`/cajero/ventas/${numeroVenta}/reimprimir`);
+      return response;
+    } catch (error) {
+      console.error('❌ Error obteniendo datos para reimprimir:', error);
+      return { success: false, message: error.message };
+    }
   }
 
   // ===========================

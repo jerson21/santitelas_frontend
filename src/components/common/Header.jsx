@@ -112,7 +112,11 @@ const Header = ({ title, children, cartCount = 0, cartTotal = 0, onCartClick }) 
 
               {/* Logo y Título */}
               <div className="flex items-center gap-2 sm:gap-4">
-                <h1 className="text-lg sm:text-2xl font-bold text-blue-600 whitespace-nowrap">Santi Telas</h1>
+                <img
+                  src="/logo.png"
+                  alt="Santi Telas"
+                  className="h-8 sm:h-10 w-auto"
+                />
                 {title && (
                   <span className="hidden md:block text-lg sm:text-xl font-semibold text-gray-800">{title}</span>
                 )}
