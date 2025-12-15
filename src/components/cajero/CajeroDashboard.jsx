@@ -92,6 +92,24 @@ const CajeroDashboard = () => {
     initialize();
   }, []);
 
+  // Escuchar evento de sesión expirada
+  useEffect(() => {
+    const handleSessionExpired = (event) => {
+      console.warn('🚪 Sesión expirada detectada en CajeroDashboard');
+      showToast(event.detail?.message || 'Su sesión ha expirado', 'error');
+      // Recargar la página para que App.jsx detecte que no hay sesión
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    };
+
+    window.addEventListener('session-expired', handleSessionExpired);
+
+    return () => {
+      window.removeEventListener('session-expired', handleSessionExpired);
+    };
+  }, [showToast]);
+
   const handleRefresh = async () => {
     await Promise.all([
       turnoActions.checkEstado(),

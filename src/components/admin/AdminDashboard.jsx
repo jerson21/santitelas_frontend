@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  Package, 
-  Warehouse, 
-  BarChart3, 
+import {
+  Users,
+  Package,
+  Warehouse,
+  BarChart3,
   FileText,
   AlertTriangle,
   CheckCircle,
@@ -15,7 +15,8 @@ import {
   Shield,
   Clock,
   AlertCircle,
-  User
+  User,
+  Cloud
 } from 'lucide-react';
 import ApiService from '../../services/api';
 import UsuariosAdmin from './UsuariosAdmin';
@@ -26,6 +27,7 @@ import StockAdmin from './StockAdmin';
 import MovimientosStock from './MovimientosStock';
 import MorosidadesAdmin from './MorosidadesAdmin';
 import ClientesAdmin from './ClientesAdmin';
+import RelbaseSyncAdmin from './RelbaseSyncAdmin';
 import TransferValidationNotifications from './TransferValidationNotifications';
 
 
@@ -41,7 +43,7 @@ const AdminDashboard = () => {
   // Leer la vista inicial desde el hash de la URL
   const getInitialView = () => {
     const hash = window.location.hash.replace('#', '');
-    const validViews = ['dashboard', 'usuarios', 'productos', 'categorias', 'bodegas', 'stock', 'movimientos', 'morosidades', 'clientes'];
+    const validViews = ['dashboard', 'usuarios', 'productos', 'categorias', 'bodegas', 'stock', 'movimientos', 'morosidades', 'clientes', 'relbase'];
     return validViews.includes(hash) ? hash : 'dashboard';
   };
 
@@ -59,7 +61,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      const validViews = ['dashboard', 'usuarios', 'productos', 'categorias', 'bodegas', 'stock', 'movimientos', 'morosidades', 'clientes'];
+      const validViews = ['dashboard', 'usuarios', 'productos', 'categorias', 'bodegas', 'stock', 'movimientos', 'morosidades', 'clientes', 'relbase'];
       if (validViews.includes(hash) && hash !== currentView) {
         setCurrentView(hash);
       }
@@ -157,6 +159,17 @@ const AdminDashboard = () => {
       actions: ['view', 'create', 'edit'],
       comingSoon: false,
       component: ClientesAdmin
+    },
+    {
+      id: 'relbase',
+      title: 'Sincronización Relbase',
+      description: 'Sincronizar productos con sistema de facturación Relbase',
+      icon: Cloud,
+      color: 'bg-sky-600 hover:bg-sky-700',
+      endpoint: '/relbase/sync',
+      actions: ['view'],
+      comingSoon: false,
+      component: RelbaseSyncAdmin
     },
     {
       id: 'reportes',

@@ -1686,6 +1686,120 @@ async procesarVale(numeroVale, datosVenta) {
   }
 
   // ===========================
+  // RELBASE SYNC - SINCRONIZACIÓN DE PRODUCTOS
+  // ===========================
+
+  /**
+   * Obtener estado de sincronización con Relbase
+   * Retorna: total_variantes, sincronizadas, pendientes, porcentaje, alerta
+   */
+  async getRelbaseSyncEstado() {
+    try {
+      const response = await this.request('/relbase/sync/estado');
+      return response;
+    } catch (error) {
+      console.error('❌ Error obteniendo estado de sincronización:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Obtener configuración de sincronización Relbase
+   * Retorna: category_plataforma_id, category_configurada, modo_prueba
+   */
+  async getRelbaseSyncConfig() {
+    try {
+      const response = await this.request('/relbase/sync/config');
+      return response;
+    } catch (error) {
+      console.error('❌ Error obteniendo config de sincronización:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Sincronizar una variante específica con Relbase
+   * @param {number} varianteId - ID de la variante a sincronizar
+   */
+  async sincronizarVarianteRelbase(varianteId) {
+    try {
+      console.log(`🔄 Sincronizando variante ${varianteId} con Relbase...`);
+      const response = await this.request(`/relbase/sync/variante/${varianteId}`, {
+        method: 'POST'
+      });
+      return response;
+    } catch (error) {
+      console.error('❌ Error sincronizando variante:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Sincronizar todas las variantes de un producto con Relbase
+   * @param {number} productoId - ID del producto
+   */
+  async sincronizarProductoRelbase(productoId) {
+    try {
+      console.log(`🔄 Sincronizando producto ${productoId} con Relbase...`);
+      const response = await this.request(`/relbase/sync/producto/${productoId}`, {
+        method: 'POST'
+      });
+      return response;
+    } catch (error) {
+      console.error('❌ Error sincronizando producto:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Sincronizar todas las variantes pendientes con Relbase
+   * Retorna: total, sincronizadas, errores, detalles[]
+   */
+  async sincronizarTodasRelbase() {
+    try {
+      console.log('🔄 Sincronizando todas las variantes pendientes con Relbase...');
+      const response = await this.request('/relbase/sync/todas', {
+        method: 'POST'
+      });
+      return response;
+    } catch (error) {
+      console.error('❌ Error sincronizando todas las variantes:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Verificar si una variante está sincronizada con Relbase
+   * @param {number} varianteId - ID de la variante
+   */
+  async verificarSincronizacionRelbase(varianteId) {
+    try {
+      const response = await this.request(`/relbase/sync/verificar/${varianteId}`);
+      return response;
+    } catch (error) {
+      console.error('❌ Error verificando sincronización:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Limpiar todos los productos de categoría Plataforma en Relbase
+   * ⚠️ PELIGROSO: Elimina productos de Relbase y resetea sincronización local
+   */
+  async limpiarProductosRelbase() {
+    try {
+      console.log('🗑️ Limpiando productos de Relbase...');
+      const response = await this.request('/relbase/sync/limpiar', {
+        method: 'DELETE'
+      });
+      return response;
+    } catch (error) {
+      console.error('❌ Error limpiando productos de Relbase:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // ===========================
   // DTE - DOCUMENTOS TRIBUTARIOS ELECTRÓNICOS (Relbase)
   // ===========================
 

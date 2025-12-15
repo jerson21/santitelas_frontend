@@ -340,16 +340,23 @@ const PaymentPanel = ({ vale, onSuccess, showToast, turnoAbierto, productosAfect
             console.log('🧾 Iniciando emisión de DTE...');
 
             // Preparar productos para DTE (formato Relbase)
+            // product_id: Si el producto está sincronizado con Relbase, usar su ID
             // product_id: 0 indica producto genérico (no registrado en Relbase)
             const productosParaDTE = vale.productos.map(p => ({
-              product_id: 0, // Producto genérico
+              product_id: p.relbase_product_id || 0, // ✅ Usar ID de Relbase si existe
               name: p.descripcion_completa || p.producto || p.nombre || 'Producto',
-              code: p.codigo || p.sku || '',
+              code: p.codigo || p.sku || p.variante?.sku || '',
               price: Math.round(p.precio_unitario * 1.19), // Precio con IVA
               quantity: p.cantidad,
               tax_affected: true,
               unit_item: 'UNID'
             }));
+
+            console.log('📦 Productos para DTE:', productosParaDTE.map(p => ({
+              product_id: p.product_id,
+              name: p.name,
+              relbase_synced: p.product_id > 0
+            })));
 
             let dteResponse;
 

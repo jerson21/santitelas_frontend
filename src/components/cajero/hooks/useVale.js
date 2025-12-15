@@ -28,7 +28,10 @@ const useVale = (showToast, refreshEstadisticas) => {
       subtotal: producto.subtotal,
       unidad_medida: producto.unidad || producto.variante?.unidad_medida || '',
       modalidad: producto.modalidad, // Mantener todo el objeto modalidad con afecto_descuento_ticket
-      variante: producto.variante
+      variante: producto.variante,
+      // ID de producto en Relbase para DTE
+      relbase_product_id: producto.relbase_product_id || null,
+      descripcion_completa: producto.descripcion_completa || producto.producto
     })) || [];
 
     // Formatear vale completo
