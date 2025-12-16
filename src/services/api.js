@@ -1690,12 +1690,12 @@ async procesarVale(numeroVale, datosVenta) {
   // ===========================
 
   /**
-   * Obtener estado de sincronización con Relbase
-   * Retorna: total_variantes, sincronizadas, pendientes, porcentaje, alerta
+   * Obtener estado de sincronización de productos con Relbase
+   * Retorna: total, sincronizadas, pendientes, porcentaje, alerta
    */
   async getRelbaseSyncEstado() {
     try {
-      const response = await this.request('/relbase/sync/estado');
+      const response = await this.request('/relbase-sync/productos/estado');
       return response;
     } catch (error) {
       console.error('❌ Error obteniendo estado de sincronización:', error);
@@ -1704,12 +1704,12 @@ async procesarVale(numeroVale, datosVenta) {
   }
 
   /**
-   * Obtener configuración de sincronización Relbase
-   * Retorna: category_plataforma_id, category_configurada, modo_prueba
+   * Obtener configuración de sincronización Relbase de productos
+   * Retorna: categoria_plataforma_id, modo_prueba
    */
   async getRelbaseSyncConfig() {
     try {
-      const response = await this.request('/relbase/sync/config');
+      const response = await this.request('/relbase-sync/productos/config');
       return response;
     } catch (error) {
       console.error('❌ Error obteniendo config de sincronización:', error);
@@ -1724,7 +1724,7 @@ async procesarVale(numeroVale, datosVenta) {
   async sincronizarVarianteRelbase(varianteId) {
     try {
       console.log(`🔄 Sincronizando variante ${varianteId} con Relbase...`);
-      const response = await this.request(`/relbase/sync/variante/${varianteId}`, {
+      const response = await this.request(`/relbase-sync/productos/${varianteId}/sincronizar`, {
         method: 'POST'
       });
       return response;
@@ -1735,49 +1735,18 @@ async procesarVale(numeroVale, datosVenta) {
   }
 
   /**
-   * Sincronizar todas las variantes de un producto con Relbase
-   * @param {number} productoId - ID del producto
-   */
-  async sincronizarProductoRelbase(productoId) {
-    try {
-      console.log(`🔄 Sincronizando producto ${productoId} con Relbase...`);
-      const response = await this.request(`/relbase/sync/producto/${productoId}`, {
-        method: 'POST'
-      });
-      return response;
-    } catch (error) {
-      console.error('❌ Error sincronizando producto:', error);
-      return { success: false, message: error.message };
-    }
-  }
-
-  /**
    * Sincronizar todas las variantes pendientes con Relbase
-   * Retorna: total, sincronizadas, errores, detalles[]
+   * Retorna: sincronizados, errores, mensaje
    */
   async sincronizarTodasRelbase() {
     try {
       console.log('🔄 Sincronizando todas las variantes pendientes con Relbase...');
-      const response = await this.request('/relbase/sync/todas', {
+      const response = await this.request('/relbase-sync/productos/sincronizar', {
         method: 'POST'
       });
       return response;
     } catch (error) {
       console.error('❌ Error sincronizando todas las variantes:', error);
-      return { success: false, message: error.message };
-    }
-  }
-
-  /**
-   * Verificar si una variante está sincronizada con Relbase
-   * @param {number} varianteId - ID de la variante
-   */
-  async verificarSincronizacionRelbase(varianteId) {
-    try {
-      const response = await this.request(`/relbase/sync/verificar/${varianteId}`);
-      return response;
-    } catch (error) {
-      console.error('❌ Error verificando sincronización:', error);
       return { success: false, message: error.message };
     }
   }
@@ -1789,12 +1758,80 @@ async procesarVale(numeroVale, datosVenta) {
   async limpiarProductosRelbase() {
     try {
       console.log('🗑️ Limpiando productos de Relbase...');
-      const response = await this.request('/relbase/sync/limpiar', {
+      const response = await this.request('/relbase-sync/productos/limpiar', {
         method: 'DELETE'
       });
       return response;
     } catch (error) {
       console.error('❌ Error limpiando productos de Relbase:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  // ===========================
+  // RELBASE SYNC - SINCRONIZACIÓN DE CLIENTES
+  // ===========================
+
+  /**
+   * Obtener estado de sincronización de clientes con Relbase
+   * Retorna: total, sincronizados, pendientes
+   */
+  async getClientesSyncEstado() {
+    try {
+      const response = await this.request('/relbase-sync/clientes/estado');
+      return response;
+    } catch (error) {
+      console.error('❌ Error obteniendo estado de sincronización de clientes:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Sincronizar todos los clientes pendientes con Relbase
+   */
+  async sincronizarClientesRelbase() {
+    try {
+      console.log('🔄 Sincronizando clientes con Relbase...');
+      const response = await this.request('/relbase-sync/clientes/sincronizar', {
+        method: 'POST'
+      });
+      return response;
+    } catch (error) {
+      console.error('❌ Error sincronizando clientes:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Sincronizar un cliente específico con Relbase
+   * @param {number} clienteId - ID del cliente a sincronizar
+   */
+  async sincronizarClienteRelbase(clienteId) {
+    try {
+      console.log(`🔄 Sincronizando cliente ${clienteId} con Relbase...`);
+      const response = await this.request(`/relbase-sync/clientes/${clienteId}/sincronizar`, {
+        method: 'POST'
+      });
+      return response;
+    } catch (error) {
+      console.error('❌ Error sincronizando cliente:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Limpiar todos los clientes sincronizados de Relbase
+   * ⚠️ PELIGROSO: Elimina clientes de Relbase y resetea sincronización local
+   */
+  async limpiarClientesRelbase() {
+    try {
+      console.log('🗑️ Limpiando clientes de Relbase...');
+      const response = await this.request('/relbase-sync/clientes/limpiar', {
+        method: 'DELETE'
+      });
+      return response;
+    } catch (error) {
+      console.error('❌ Error limpiando clientes de Relbase:', error);
       return { success: false, message: error.message };
     }
   }
@@ -1854,13 +1891,24 @@ async procesarVale(numeroVale, datosVenta) {
       console.log('📦 Productos:', productos);
       console.log('👤 Cliente:', cliente);
 
+      // Extraer descuento y convertir a formato Relbase
+      const { descuento, ...restoOpciones } = opciones;
+      const bodyData = {
+        productos,
+        cliente,
+        ...restoOpciones
+      };
+
+      // Agregar descuento global si existe (Relbase usa global_discount)
+      if (descuento && descuento > 0) {
+        bodyData.global_discount = descuento;
+        bodyData.global_discount_type = '$';  // Monto fijo en pesos
+        console.log(`💰 Descuento global: $${descuento}`);
+      }
+
       const response = await this.request('/dte/factura', {
         method: 'POST',
-        body: JSON.stringify({
-          productos,
-          cliente,
-          ...opciones
-        })
+        body: JSON.stringify(bodyData)
       });
 
       console.log('📥 Respuesta DTE factura:', response);

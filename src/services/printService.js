@@ -66,11 +66,14 @@ const printService = {
       numero_vale: numeroValeFormateado,
       fecha: new Date().toISOString(),
 
-      // Info del cliente
+      // Info del cliente (incluir todos los datos para factura)
       cliente: {
-        nombre: paymentData.nombre_cliente || vale.cliente || 'Cliente General',
+        nombre: paymentData.razon_social || paymentData.nombre_cliente || vale.cliente || 'Cliente General',
         rut: paymentData.rut_cliente || '',
-        direccion: paymentData.direccion || ''
+        direccion: paymentData.direccion || '',
+        giro: paymentData.giro || '',
+        comuna: paymentData.comuna || '',
+        ciudad: paymentData.ciudad || ''
       },
 
       // Productos
@@ -99,7 +102,8 @@ const printService = {
       // DTE (Documento Tributario Electrónico)
       folio_dte: totales.folioDTE || null,
       modo_prueba_dte: totales.modoPruebaDTE || false,
-      timbre_ted: totales.timbreTED || null  // Timbre electrónico para código de barras PDF417
+      timbre_ted: totales.timbreTED || null,  // Timbre electrónico para código de barras PDF417
+      dte_pendiente: totales.dtePendiente || false  // Si el DTE está pendiente de emisión
     };
   },
 

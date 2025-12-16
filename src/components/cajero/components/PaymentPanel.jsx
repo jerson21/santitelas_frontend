@@ -10,6 +10,7 @@ import {
 import PaymentAmountModal from './PaymentAmountModal';
 import ValidacionTransferencia from './ValidacionTransferencia';
 import FacturacionModal from './FacturacionModal';
+import DTEErrorModal from './DTEErrorModal';
 import { filterEmptyFields } from '../utils/validators';
 import apiService from '../../../services/api';
 import printService from '../../../services/printService';
@@ -22,6 +23,13 @@ const PaymentPanel = ({ vale, onSuccess, showToast, turnoAbierto, productosAfect
   const [loading, setLoading] = useState(false);
   const [transferData, setTransferData] = useState(null);
   const [printServerAvailable, setPrintServerAvailable] = useState(false);
+
+  // Estados para manejo de errores DTE
+  const [showDTEErrorModal, setShowDTEErrorModal] = useState(false);
+  const [dteError, setDteError] = useState(null);
+  const [dteIntentos, setDteIntentos] = useState(0);
+  const [dtePendienteData, setDtePendienteData] = useState(null);
+  const [dteLoading, setDteLoading] = useState(false);
   const [paymentData, setPaymentData] = useState({
     tipo_documento: 'boleta',
     metodo_pago: 'EFE',
@@ -228,6 +236,244 @@ const PaymentPanel = ({ vale, onSuccess, showToast, turnoAbierto, productosAfect
     return totalConIva;
   };
 
+  // Función para preparar productos para DTE
+  const prepararProductosParaDTE = () => {
+    return vale.productos.map(p => {
+      const nombreBase = p.producto || p.nombre || 'Producto';
+      const color = p.variante?.color || '';
+      const nombreLimpio = color && !nombreBase.toUpperCase().includes(color.toUpperCase())
+        ? `${nombreBase} ${color}`.trim()
+        : nombreBase;
+
+      return {
+        product_id: p.relbase_product_id || 0,
+        name: nombreLimpio,
+        code: p.codigo || p.sku || p.variante?.sku || '',
+        price: Math.round(p.precio_unitario * 1.19),
+        quantity: p.cantidad,
+        tax_affected: true,
+        unit_item: 'UNID'
+      };
+    });
+  };
+
+  // Función para intentar emitir DTE (boleta o factura)
+  const intentarEmitirDTE = async (productosParaDTE, tipoDoc, clienteDTE = null) => {
+    try {
+      let dteResponse;
+
+      if (tipoDoc === 'boleta') {
+        dteResponse = await apiService.emitirBoleta(productosParaDTE, {
+          comment: `Vale ${vale.numero}`
+        });
+      } else {
+        dteResponse = await apiService.emitirFactura(productosParaDTE, clienteDTE, {
+          comment: `Vale ${vale.numero}`,
+          descuento: calcularDescuento()
+        });
+      }
+
+      return dteResponse;
+    } catch (error) {
+      console.error('Error en intentarEmitirDTE:', error);
+      return {
+        success: false,
+        message: error.message || 'Error de conexión con el servicio de facturación'
+      };
+    }
+  };
+
+  // Handler para reintentar emisión DTE desde el modal
+  const handleDTEReintentar = async () => {
+    if (!dtePendienteData) return;
+
+    const nuevoIntento = dteIntentos + 1;
+    setDteIntentos(nuevoIntento);
+    setDteLoading(true);
+
+    try {
+      const response = await intentarEmitirDTE(
+        dtePendienteData.productosParaDTE,
+        dtePendienteData.tipoDoc,
+        dtePendienteData.clienteDTE
+      );
+
+      if (response.success) {
+        setShowDTEErrorModal(false);
+        // Continuar con el flujo de cobro exitoso
+        await completarCobroConDTE(response, dtePendienteData);
+      } else {
+        setDteError(response.message || 'Error desconocido');
+        if (nuevoIntento >= 3) {
+          showToast('Máximo de reintentos alcanzado. Puede guardar como pendiente.', 'warning');
+        }
+      }
+    } catch (error) {
+      setDteError(error.message || 'Error al reintentar');
+    } finally {
+      setDteLoading(false);
+    }
+  };
+
+  // Handler para guardar como DTE pendiente
+  const handleGuardarPendiente = async () => {
+    setShowDTEErrorModal(false);
+    setDteLoading(true);
+
+    try {
+      await completarCobroSinDTE(dteError);
+    } finally {
+      setDteLoading(false);
+      // Limpiar estados DTE
+      setDtePendienteData(null);
+      setDteError(null);
+      setDteIntentos(0);
+    }
+  };
+
+  // Función para completar cobro con DTE emitido exitosamente
+  const completarCobroConDTE = async (dteResponse, pendienteData) => {
+    const { montoRecibido, numeroVenta, totalConIva, vuelto, observacionesTransferencia } = pendienteData;
+
+    let mensaje = `✅ Pago procesado correctamente: vale ${vale.numero}`;
+
+    if (paymentData.metodo_pago === 'EFE' && vuelto > 0) {
+      mensaje += `\n💰 Vuelto entregado: $${vuelto.toLocaleString('es-CL')}`;
+    }
+
+    const metodosTexto = { 'EFE': 'Efectivo', 'TAR': 'Tarjeta', 'TRA': 'Transferencia' };
+    mensaje += `\n💳 Método: ${metodosTexto[paymentData.metodo_pago]}`;
+
+    if (paymentData.metodo_pago === 'TRA' && paymentData.cuenta_transferencia) {
+      const cuenta = cuentasTransferencia.find(c => c.id === paymentData.cuenta_transferencia);
+      if (cuenta) mensaje += ` (${cuenta.nombre})`;
+    }
+
+    const folioDTE = dteResponse.data?.folio;
+    const modoPruebaDTE = dteResponse.data?.dte?.sii_status === 'simulado';
+    const timbreTED = dteResponse.data?.dte?.timbre || null;
+
+    const tipoDoc = paymentData.tipo_documento === 'boleta' ? 'Boleta' : 'Factura';
+    if (modoPruebaDTE) {
+      mensaje += `\n🧪 ${tipoDoc} SIMULADA - Folio: ${folioDTE} (modo prueba)`;
+    } else {
+      mensaje += `\n🧾 ${tipoDoc} Electrónica emitida - Folio: ${folioDTE}`;
+    }
+
+    // Guardar DTE en la BD
+    if (numeroVenta && folioDTE) {
+      try {
+        await apiService.guardarDTEVenta(numeroVenta, {
+          folio_dte: folioDTE,
+          tipo_dte: paymentData.tipo_documento,
+          timbre_ted: timbreTED,
+          pdf_url_dte: dteResponse.data?.pdf_url || null,
+          modo_prueba_dte: modoPruebaDTE,
+          dte_pendiente: false
+        });
+        console.log(`💾 DTE guardado en BD para venta ${numeroVenta}`);
+      } catch (saveError) {
+        console.error('⚠️ No se pudo guardar DTE en BD:', saveError);
+      }
+    }
+
+    // Imprimir boleta
+    if (printServerAvailable) {
+      try {
+        const boletaData = printService.formatBoletaData(vale, paymentData, {
+          neto: calcularNeto(),
+          iva: calcularIVA(),
+          descuento: calcularDescuento(),
+          total: totalConIva,
+          montoPagado: montoRecibido,
+          vuelto: vuelto > 0 ? vuelto : 0,
+          folioDTE: folioDTE,
+          modoPruebaDTE: modoPruebaDTE,
+          timbreTED: timbreTED
+        });
+        await printService.printBoleta(boletaData);
+        mensaje += '\n🖨️ Boleta enviada a impresión';
+      } catch (printError) {
+        console.error('Error al imprimir:', printError);
+        mensaje += '\n⚠️ No se pudo imprimir la boleta';
+      }
+    }
+
+    showToast(mensaje, 'success');
+    setShowAmountModal(false);
+    onSuccess(numeroVenta);
+
+    // Limpiar estados DTE
+    setDtePendienteData(null);
+    setDteError(null);
+    setDteIntentos(0);
+    setLoading(false);
+  };
+
+  // Función para completar cobro SIN DTE (guardarlo como pendiente)
+  const completarCobroSinDTE = async (errorMensaje) => {
+    if (!dtePendienteData) return;
+
+    const { montoRecibido, numeroVenta, totalConIva, vuelto } = dtePendienteData;
+
+    let mensaje = `✅ Pago procesado: vale ${vale.numero}`;
+
+    if (paymentData.metodo_pago === 'EFE' && vuelto > 0) {
+      mensaje += `\n💰 Vuelto entregado: $${vuelto.toLocaleString('es-CL')}`;
+    }
+
+    const metodosTexto = { 'EFE': 'Efectivo', 'TAR': 'Tarjeta', 'TRA': 'Transferencia' };
+    mensaje += `\n💳 Método: ${metodosTexto[paymentData.metodo_pago]}`;
+
+    mensaje += `\n⚠️ DTE PENDIENTE - Se emitirá posteriormente`;
+
+    // Guardar venta con DTE pendiente
+    if (numeroVenta) {
+      try {
+        await apiService.guardarDTEVenta(numeroVenta, {
+          folio_dte: null,
+          tipo_dte: paymentData.tipo_documento,
+          timbre_ted: null,
+          pdf_url_dte: null,
+          modo_prueba_dte: false,
+          dte_pendiente: true,
+          dte_error_mensaje: errorMensaje || 'Error al emitir DTE'
+        });
+        console.log(`💾 DTE marcado como pendiente para venta ${numeroVenta}`);
+      } catch (saveError) {
+        console.error('⚠️ No se pudo guardar estado DTE pendiente:', saveError);
+      }
+    }
+
+    // Imprimir boleta con aviso de pendiente
+    if (printServerAvailable) {
+      try {
+        const boletaData = printService.formatBoletaData(vale, paymentData, {
+          neto: calcularNeto(),
+          iva: calcularIVA(),
+          descuento: calcularDescuento(),
+          total: totalConIva,
+          montoPagado: montoRecibido,
+          vuelto: vuelto > 0 ? vuelto : 0,
+          folioDTE: null,
+          modoPruebaDTE: false,
+          timbreTED: null,
+          dtePendiente: true  // Indicador para imprimir aviso
+        });
+        await printService.printBoleta(boletaData);
+        mensaje += '\n🖨️ Documento enviado a impresión (con aviso pendiente)';
+      } catch (printError) {
+        console.error('Error al imprimir:', printError);
+        mensaje += '\n⚠️ No se pudo imprimir';
+      }
+    }
+
+    showToast(mensaje, 'warning');
+    setShowAmountModal(false);
+    onSuccess(numeroVenta);
+    setLoading(false);
+  };
+
   const handleOpenPaymentModal = () => {
     // Validaciones básicas
     if (paymentData.tipo_documento === 'factura' && (!paymentData.rut_cliente || !paymentData.razon_social)) {
@@ -336,91 +582,83 @@ const PaymentPanel = ({ vale, onSuccess, showToast, turnoAbierto, productosAfect
 
         // Solo emitir DTE si es boleta o factura (no para ticket)
         if (paymentData.tipo_documento === 'boleta' || paymentData.tipo_documento === 'factura') {
-          try {
-            console.log('🧾 Iniciando emisión de DTE...');
+          console.log('🧾 Iniciando emisión de DTE...');
 
-            // Preparar productos para DTE (formato Relbase)
-            // product_id: Si el producto está sincronizado con Relbase, usar su ID
-            // product_id: 0 indica producto genérico (no registrado en Relbase)
-            const productosParaDTE = vale.productos.map(p => ({
-              product_id: p.relbase_product_id || 0, // ✅ Usar ID de Relbase si existe
-              name: p.descripcion_completa || p.producto || p.nombre || 'Producto',
-              code: p.codigo || p.sku || p.variante?.sku || '',
-              price: Math.round(p.precio_unitario * 1.19), // Precio con IVA
-              quantity: p.cantidad,
-              tax_affected: true,
-              unit_item: 'UNID'
-            }));
+          // Preparar productos para DTE
+          const productosParaDTE = prepararProductosParaDTE();
+          console.log('📦 Productos para DTE:', productosParaDTE.map(p => ({
+            product_id: p.product_id,
+            name: p.name,
+            relbase_synced: p.product_id > 0
+          })));
 
-            console.log('📦 Productos para DTE:', productosParaDTE.map(p => ({
-              product_id: p.product_id,
-              name: p.name,
-              relbase_synced: p.product_id > 0
-            })));
+          // Preparar cliente para factura
+          const clienteDTE = paymentData.tipo_documento === 'factura' ? {
+            rut: paymentData.rut_cliente,
+            name: paymentData.razon_social || paymentData.nombre_cliente,
+            address: paymentData.direccion,
+            giro: paymentData.giro,
+            comuna: paymentData.comuna
+          } : null;
 
-            let dteResponse;
+          // Intentar emitir DTE
+          const dteResponse = await intentarEmitirDTE(productosParaDTE, paymentData.tipo_documento, clienteDTE);
 
-            if (paymentData.tipo_documento === 'boleta') {
-              // Emitir boleta electrónica
-              dteResponse = await apiService.emitirBoleta(productosParaDTE, {
-                comment: `Vale ${vale.numero}`
-              });
+          console.log('📥 Respuesta DTE:', JSON.stringify(dteResponse, null, 2));
+
+          if (dteResponse.success) {
+            // DTE emitido exitosamente
+            folioDTE = dteResponse.data?.folio;
+            modoPruebaDTE = dteResponse.data?.dte?.sii_status === 'simulado';
+            timbreTED = dteResponse.data?.dte?.timbre || null;
+
+            const tipoDoc = paymentData.tipo_documento === 'boleta' ? 'Boleta' : 'Factura';
+            if (modoPruebaDTE) {
+              mensaje += `\n🧪 ${tipoDoc} SIMULADA - Folio: ${folioDTE} (modo prueba)`;
             } else {
-              // Emitir factura electrónica
-              const clienteDTE = {
-                rut: paymentData.rut_cliente,
-                name: paymentData.razon_social || paymentData.nombre_cliente,
-                address: paymentData.direccion,
-                commune_id: null, // Relbase usa IDs de comuna
-                city_id: null
-              };
-
-              dteResponse = await apiService.emitirFactura(productosParaDTE, clienteDTE, {
-                comment: `Vale ${vale.numero}`
-              });
+              mensaje += `\n🧾 ${tipoDoc} Electrónica emitida - Folio: ${folioDTE}`;
             }
 
-            console.log('📥 Respuesta DTE completa:', JSON.stringify(dteResponse, null, 2));
-
-            if (dteResponse.success) {
-              folioDTE = dteResponse.data?.folio;
-              modoPruebaDTE = dteResponse.data?.dte?.sii_status === 'simulado';
-              timbreTED = dteResponse.data?.dte?.timbre || null;  // Timbre electrónico del SII (XML para PDF417)
-              console.log('📦 Datos extraídos - folioDTE:', folioDTE, 'modoPruebaDTE:', modoPruebaDTE, 'timbreTED:', timbreTED ? 'presente' : 'ausente');
-
-              const tipoDoc = paymentData.tipo_documento === 'boleta' ? 'Boleta' : 'Factura';
-
-              if (modoPruebaDTE) {
-                mensaje += `\n🧪 ${tipoDoc} SIMULADA - Folio: ${folioDTE} (modo prueba)`;
-              } else {
-                mensaje += `\n🧾 ${tipoDoc} Electrónica emitida - Folio: ${folioDTE}`;
+            // Guardar DTE en la BD
+            if (numeroVenta && folioDTE) {
+              try {
+                await apiService.guardarDTEVenta(numeroVenta, {
+                  folio_dte: folioDTE,
+                  tipo_dte: paymentData.tipo_documento,
+                  timbre_ted: timbreTED,
+                  pdf_url_dte: dteResponse.data?.pdf_url || null,
+                  modo_prueba_dte: modoPruebaDTE,
+                  dte_pendiente: false
+                });
+                console.log(`💾 DTE guardado en BD para venta ${numeroVenta}`);
+              } catch (saveError) {
+                console.error('⚠️ No se pudo guardar DTE en BD:', saveError);
               }
-
-              console.log(`✅ DTE emitido - Folio: ${folioDTE}, Modo prueba: ${modoPruebaDTE}`);
-
-              // Guardar DTE en la BD para permitir reimpresión futura
-              if (numeroVenta && folioDTE) {
-                try {
-                  await apiService.guardarDTEVenta(numeroVenta, {
-                    folio_dte: folioDTE,
-                    tipo_dte: paymentData.tipo_documento,
-                    timbre_ted: timbreTED,
-                    pdf_url_dte: dteResponse.data?.pdf_url || null,
-                    modo_prueba_dte: modoPruebaDTE
-                  });
-                  console.log(`💾 DTE guardado en BD para venta ${numeroVenta}`);
-                } catch (saveError) {
-                  console.error('⚠️ No se pudo guardar DTE en BD:', saveError);
-                  // No bloquear el flujo por este error
-                }
-              }
-            } else {
-              console.error('❌ Error emitiendo DTE:', dteResponse.message);
-              mensaje += `\n⚠️ No se pudo emitir DTE: ${dteResponse.message}`;
             }
-          } catch (dteError) {
-            console.error('❌ Error en emisión DTE:', dteError);
-            mensaje += '\n⚠️ Error al emitir documento tributario';
+          } else {
+            // ❌ DTE FALLÓ - Mostrar modal de error para reintentos
+            console.error('❌ Error emitiendo DTE:', dteResponse.message);
+
+            // Guardar datos para reintentos
+            setDtePendienteData({
+              productosParaDTE,
+              clienteDTE,
+              tipoDoc: paymentData.tipo_documento,
+              montoRecibido,
+              numeroVenta,
+              totalConIva,
+              vuelto,
+              observacionesTransferencia
+            });
+
+            // Mostrar modal de error
+            setDteError(dteResponse.message || 'Error al conectar con el servicio de facturación');
+            setDteIntentos(1);
+            setShowDTEErrorModal(true);
+
+            // Detener el flujo aquí - el usuario decidirá si reintentar o guardar como pendiente
+            setLoading(false);
+            return;
           }
         }
 
@@ -436,7 +674,7 @@ const PaymentPanel = ({ vale, onSuccess, showToast, turnoAbierto, productosAfect
               vuelto: vuelto > 0 ? vuelto : 0,
               folioDTE: folioDTE,
               modoPruebaDTE: modoPruebaDTE,
-              timbreTED: timbreTED  // Timbre SII para código de barras PDF417
+              timbreTED: timbreTED
             });
             await printService.printBoleta(boletaData);
             mensaje += '\n🖨️ Boleta enviada a impresión';
@@ -763,6 +1001,24 @@ const PaymentPanel = ({ vale, onSuccess, showToast, turnoAbierto, productosAfect
           correo: paymentData.correo || vale?.detalles_originales?.cliente_info?.email || '',
           telefono: paymentData.telefono || vale?.detalles_originales?.cliente_info?.telefono || ''
         }}
+      />
+
+      {/* Modal de Error DTE con reintentos */}
+      <DTEErrorModal
+        isOpen={showDTEErrorModal}
+        onClose={() => {
+          setShowDTEErrorModal(false);
+          setDtePendienteData(null);
+          setDteError(null);
+          setDteIntentos(0);
+        }}
+        error={dteError}
+        intentos={dteIntentos}
+        maxIntentos={3}
+        onReintentar={handleDTEReintentar}
+        onGuardarPendiente={handleGuardarPendiente}
+        tipoDocumento={paymentData.tipo_documento}
+        isLoading={dteLoading}
       />
     </>
   );
