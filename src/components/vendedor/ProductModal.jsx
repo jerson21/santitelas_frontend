@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Tag, Percent, DollarSign } from 'lucide-react';
 
-const ProductModal = ({ product, documentType, preselectedOption, onAdd, onClose }) => {
+const ProductModal = ({ product, documentType, preselectedOption, onAdd, onClose, clienteActual }) => {
   const [inputValue, setInputValue] = useState('0');
   const [selectedModalidad, setSelectedModalidad] = useState(null);
   const formatter = new Intl.NumberFormat('es-CL');
@@ -9,10 +9,11 @@ const ProductModal = ({ product, documentType, preselectedOption, onAdd, onClose
   // ✅ USAR DIRECTAMENTE LAS MODALIDADES DE LA API
   useEffect(() => {
     console.log('🔍 ProductModal - Producto recibido:', product);
-    
+    console.log('🔍 ProductModal - Cliente actual:', clienteActual);
+
     // ✅ MODALIDADES DIRECTAS DE LA API - SIN TRANSFORMAR
-    const modalidades = product.selectedVariant?.modalidades_disponibles || 
-                       product.modalidades_producto || 
+    const modalidades = product.selectedVariant?.modalidades_disponibles ||
+                       product.modalidades_producto ||
                        [];
 
     console.log('✅ MODALIDADES DIRECTAS DE LA API:', modalidades);
@@ -24,19 +25,39 @@ const ProductModal = ({ product, documentType, preselectedOption, onAdd, onClose
       setSelectedModalidad(null);
       console.warn('⚠️ No hay modalidades configuradas');
     }
-  }, [product]);
+  }, [product, clienteActual]);
 
-  // ✅ PRECIO DIRECTO DE LA API - SIN TRANSFORMAR
+  // ✅ PRECIO CON SOPORTE PARA PRECIOS ESPECIALES
   const getPriceForDocument = (modalidad) => {
-    if (!modalidad || !modalidad.precios) return 0;
+    if (!modalidad || !modalidad.precios) return { precio: 0, esEspecial: false };
 
-    // ✅ USAR DIRECTAMENTE LOS PRECIOS DE LA API
-    switch (documentType) {
-      case 'factura':
-        return parseFloat(modalidad.precios.factura) || parseFloat(modalidad.precios.neto) || 0;
-      default:
-        return parseFloat(modalidad.precios.neto) || 0;
+    // ✅ Verificar si hay precio especial para este cliente
+    if (clienteActual?.rut && modalidad.precio_especial) {
+      return {
+        precio: parseFloat(modalidad.precio_especial),
+        esEspecial: true,
+        tipoDescuento: modalidad.tipo_descuento,
+        valorDescuento: modalidad.valor_descuento,
+        cantidadMinima: modalidad.cantidad_minima_especial || 1,
+        origenPrecio: modalidad.origen_precio_especial,
+        precioOriginal: documentType === 'factura'
+          ? parseFloat(modalidad.precios.factura) || parseFloat(modalidad.precios.neto)
+          : parseFloat(modalidad.precios.neto)
+      };
     }
+
+    // Precio normal
+    const precio = documentType === 'factura'
+      ? parseFloat(modalidad.precios.factura) || parseFloat(modalidad.precios.neto) || 0
+      : parseFloat(modalidad.precios.neto) || 0;
+
+    return { precio, esEspecial: false };
+  };
+
+  // Helper para obtener solo el precio numérico
+  const getPrecioNumerico = (modalidad) => {
+    const info = getPriceForDocument(modalidad);
+    return info.precio;
   };
 
   // ✅ MOVER ESTAS FUNCIONES ANTES DE getValidationMessage
@@ -78,25 +99,38 @@ const ProductModal = ({ product, documentType, preselectedOption, onAdd, onClose
     }
   };
 
-  const finalPricePerUnit = getPriceForDocument(selectedModalidad);
+  // ✅ OBTENER INFO DE PRECIO COMPLETA (con soporte para precios especiales)
+  const precioInfo = getPriceForDocument(selectedModalidad);
+  const finalPricePerUnit = precioInfo.precio;
   const totalStock = product.resumen?.stock_total ?? 0;
   const quantity = parseFloat(inputValue) || 0;
   const totalPrice = quantity * finalPricePerUnit;
 
-  // ✅ VALIDACIONES MEJORADAS para modalidad ROLLO - AHORA DESPUÉS DE getUnidadDisplay
+  // ✅ VALIDACIONES MEJORADAS para modalidad ROLLO y PRECIOS ESPECIALES
   const getValidationMessage = () => {
     if (!selectedModalidad) return 'No hay modalidades configuradas';
     if (quantity <= 0) return 'La cantidad debe ser mayor a 0';
-    if (quantity > totalStock && documentType !== 'factura') 
+    if (quantity > totalStock && documentType !== 'factura')
       return `La cantidad supera el stock disponible (${totalStock} metros)`;
 
-    const minimoRequerido = parseFloat(selectedModalidad.minimo_cantidad) || 1;
-    if (quantity < minimoRequerido) {
-      // ✅ MENSAJE CORREGIDO para ROLLO
-      if (selectedModalidad.nombre.toLowerCase() === 'rollo') {
-        return `La cantidad mínima es ${minimoRequerido} metros (modalidad rollo)`;
-      } else {
-        return `La cantidad mínima es ${minimoRequerido} ${getUnidadDisplay(selectedModalidad)}`;
+    // ✅ VALIDAR CANTIDAD MÍNIMA DEL PRECIO ESPECIAL (tiene prioridad)
+    if (precioInfo.esEspecial && precioInfo.cantidadMinima > 1) {
+      if (quantity < precioInfo.cantidadMinima) {
+        if (selectedModalidad.nombre.toLowerCase() === 'rollo') {
+          return `Para el precio especial, la cantidad mínima es ${precioInfo.cantidadMinima} metros`;
+        } else {
+          return `Para el precio especial, la cantidad mínima es ${precioInfo.cantidadMinima} ${getUnidadDisplay(selectedModalidad)}`;
+        }
+      }
+    } else {
+      // Validar cantidad mínima normal de la modalidad
+      const minimoRequerido = parseFloat(selectedModalidad.minimo_cantidad) || 1;
+      if (quantity < minimoRequerido) {
+        if (selectedModalidad.nombre.toLowerCase() === 'rollo') {
+          return `La cantidad mínima es ${minimoRequerido} metros (modalidad rollo)`;
+        } else {
+          return `La cantidad mínima es ${minimoRequerido} ${getUnidadDisplay(selectedModalidad)}`;
+        }
       }
     }
 
@@ -173,22 +207,59 @@ const ProductModal = ({ product, documentType, preselectedOption, onAdd, onClose
               </div>
             </div>
 
-            {/* ✅ PRECIO - RESPONSIVE */}
+            {/* ✅ PRECIO CON SOPORTE PARA PRECIOS ESPECIALES */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-              <p className="text-base sm:text-lg text-gray-700">
-                <span className="font-semibold text-blue-600">
-                  ${formatter.format(finalPricePerUnit)}
-                </span> / {getUnidadDisplay(selectedModalidad)}
+              <div className="text-base sm:text-lg text-gray-700">
+                {precioInfo.esEspecial ? (
+                  <>
+                    {/* Precio original tachado */}
+                    <span className="text-gray-400 line-through text-sm mr-2">
+                      ${formatter.format(precioInfo.precioOriginal)}
+                    </span>
+                    {/* Precio especial */}
+                    <span className="font-semibold text-green-600">
+                      ${formatter.format(finalPricePerUnit)}
+                    </span>
+                    {/* Indicador de precio especial */}
+                    <span className="ml-2 inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">
+                      <Tag className="w-3 h-3" />
+                      {precioInfo.tipoDescuento === 'porcentaje'
+                        ? `-${precioInfo.valorDescuento}%`
+                        : 'Precio fijo'
+                      }
+                    </span>
+                  </>
+                ) : (
+                  <span className="font-semibold text-blue-600">
+                    ${formatter.format(finalPricePerUnit)}
+                  </span>
+                )}
+                <span className="ml-2">/ {getUnidadDisplay(selectedModalidad)}</span>
                 <span className="text-xs sm:text-sm ml-2 text-gray-400 block sm:inline">
                   ({getPriceDescription()}{selectedModalidad?.nombre.toLowerCase() === 'rollo' ? ' - modalidad rollo' : ''})
                 </span>
-              </p>
+              </div>
               {selectedModalidad?.descripcion && (
                 <span className="text-xs sm:text-sm text-gray-500">
                   {selectedModalidad.descripcion}
                 </span>
               )}
             </div>
+
+            {/* ✅ INFO DE PRECIO ESPECIAL */}
+            {precioInfo.esEspecial && clienteActual && (
+              <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center gap-2 text-green-700 text-sm">
+                  <Tag className="w-4 h-4" />
+                  <span className="font-medium">Precio especial para {clienteActual.nombre || clienteActual.rut}</span>
+                </div>
+                {precioInfo.cantidadMinima > 1 && (
+                  <div className="text-xs text-green-600 mt-1">
+                    Cantidad mínima: {precioInfo.cantidadMinima} {getUnidadDisplay(selectedModalidad)}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100">
             <X className="w-7 h-7" />
@@ -220,16 +291,18 @@ const ProductModal = ({ product, documentType, preselectedOption, onAdd, onClose
                   }
 
                   return modalidades.map((modalidad, index) => {
-                    // ✅ PRECIO ESPECÍFICO DE ESTA MODALIDAD (no de la seleccionada)
-                    const modalidadPrice = getPriceForDocument(modalidad);
+                    // ✅ PRECIO ESPECÍFICO DE ESTA MODALIDAD (con soporte para precios especiales)
+                    const modalidadPrecioInfo = getPriceForDocument(modalidad);
+                    const modalidadPrice = modalidadPrecioInfo.precio;
+                    const tienePrecioEspecial = modalidadPrecioInfo.esEspecial;
                     const minimoRequerido = parseFloat(modalidad.minimo_cantidad) || 1;
                     const esVariable = modalidad.es_cantidad_variable;
                     const isSelected = selectedModalidad?.id_modalidad === modalidad.id_modalidad;
 
                     console.log(`🔍 RENDER Modalidad ${modalidad.nombre}:`, {
                       id: modalidad.id_modalidad,
-                      precio_propio: modalidadPrice, // ✅ Precio específico de esta modalidad
-                      precio_seleccionada: finalPricePerUnit, // Para comparar
+                      precio_propio: modalidadPrice,
+                      tienePrecioEspecial,
                       esVariable,
                       isSelected,
                       modalidad_completa: modalidad
@@ -243,7 +316,13 @@ const ProductModal = ({ product, documentType, preselectedOption, onAdd, onClose
                           setSelectedModalidad(modalidad);
                         }}
                         className={`px-4 py-3 rounded-lg text-left transition-all duration-200 ${
-                          isSelected ? 'bg-blue-600 text-white ring-2 ring-blue-300' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                          isSelected
+                            ? tienePrecioEspecial
+                              ? 'bg-green-600 text-white ring-2 ring-green-300'
+                              : 'bg-blue-600 text-white ring-2 ring-blue-300'
+                            : tienePrecioEspecial
+                              ? 'bg-green-50 text-gray-800 hover:bg-green-100 border border-green-200'
+                              : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                         }`}
                       >
                         <div className="flex justify-between items-center">
@@ -253,14 +332,35 @@ const ProductModal = ({ product, documentType, preselectedOption, onAdd, onClose
                               {!esVariable && (
                                 <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full">Fija</span>
                               )}
+                              {/* ✅ INDICADOR DE PRECIO ESPECIAL */}
+                              {tienePrecioEspecial && (
+                                <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                                  isSelected ? 'bg-green-500 text-white' : 'bg-green-100 text-green-700'
+                                }`}>
+                                  <Tag className="w-3 h-3" />
+                                  {modalidadPrecioInfo.tipoDescuento === 'porcentaje'
+                                    ? `-${modalidadPrecioInfo.valorDescuento}%`
+                                    : 'Especial'
+                                  }
+                                </span>
+                              )}
                             </div>
-                            <div className={`text-sm mt-1 flex items-center gap-3 ${isSelected ? 'text-blue-100' : 'text-gray-600'}`}>
-                              {/* ✅ MOSTRAR EL PRECIO ESPECÍFICO DE ESTA MODALIDAD */}
+                            <div className={`text-sm mt-1 flex items-center gap-3 ${
+                              isSelected
+                                ? tienePrecioEspecial ? 'text-green-100' : 'text-blue-100'
+                                : 'text-gray-600'
+                            }`}>
+                              {/* ✅ MOSTRAR PRECIO CON TACHADO SI HAY DESCUENTO */}
+                              {tienePrecioEspecial && (
+                                <span className={`line-through text-xs ${isSelected ? 'text-green-200' : 'text-gray-400'}`}>
+                                  ${formatter.format(modalidadPrecioInfo.precioOriginal)}
+                                </span>
+                              )}
                               <span className="font-medium">${formatter.format(modalidadPrice)}</span>
-                              {/* ✅ DESCRIPCIÓN MEJORADA PARA ROLLO */}
+                              {/* ✅ DESCRIPCIÓN MEJORADA */}
                               <span className="text-xs">
-                                {modalidad.nombre.toLowerCase() === 'rollo' 
-                                  ? 'por metro (precio rollo)' 
+                                {modalidad.nombre.toLowerCase() === 'rollo'
+                                  ? 'por metro (precio rollo)'
                                   : modalidad.descripcion || getModalidadDescription(modalidad)
                                 }
                               </span>

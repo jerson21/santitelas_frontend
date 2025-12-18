@@ -76,6 +76,9 @@ const ClientesAdmin = () => {
   const [importResult, setImportResult] = useState(null);
   const fileInputRef = useRef(null);
 
+  // Listas de precios disponibles
+  const [listasPrecios, setListasPrecios] = useState([]);
+
   function getEmptyFormData() {
     return {
       rut: '',
@@ -100,7 +103,7 @@ const ClientesAdmin = () => {
       linea_credito: 0,
       dias_credito: 0,
       forma_pago_default: '',
-      lista_precios: '',
+      id_lista_precios: null,
       restringir_si_vencido: false,
       dias_adicionales_morosidad: 0
     };
@@ -118,6 +121,24 @@ const ClientesAdmin = () => {
   useEffect(() => {
     cargarClientes();
   }, [pagination.page, pagination.limit, debouncedSearch, filtroActivo]);
+
+  // Cargar listas de precios cuando se abre el modal
+  useEffect(() => {
+    if (showModal) {
+      cargarListasPrecios();
+    }
+  }, [showModal]);
+
+  const cargarListasPrecios = async () => {
+    try {
+      const response = await apiService.getListasPrecios({ activa: true });
+      if (response.success) {
+        setListasPrecios(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error cargando listas de precios:', error);
+    }
+  };
 
   const cargarClientes = async (resetPage = false) => {
     setLoading(true);
@@ -200,7 +221,7 @@ const ClientesAdmin = () => {
       linea_credito: cliente.linea_credito || 0,
       dias_credito: cliente.dias_credito || 0,
       forma_pago_default: cliente.forma_pago_default || '',
-      lista_precios: cliente.lista_precios || '',
+      id_lista_precios: cliente.id_lista_precios || null,
       restringir_si_vencido: cliente.restringir_si_vencido || false,
       dias_adicionales_morosidad: cliente.dias_adicionales_morosidad || 0
     });
@@ -997,9 +1018,18 @@ const ClientesAdmin = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Lista de precios</label>
-                      <input type="text" value={formData.lista_precios}
-                        onChange={(e) => setFormData({ ...formData, lista_precios: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+                      <select
+                        value={formData.id_lista_precios || ''}
+                        onChange={(e) => setFormData({ ...formData, id_lista_precios: e.target.value ? parseInt(e.target.value) : null })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      >
+                        <option value="">Sin lista asignada</option>
+                        {listasPrecios.map(lista => (
+                          <option key={lista.id_lista_precios} value={lista.id_lista_precios}>
+                            {lista.nombre}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Días adicionales morosidad</label>

@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { LogOut, ShoppingCart, X, Trash2, Receipt, Printer, Home } from 'lucide-react';
+import { LogOut, ShoppingCart, X, Trash2, Receipt, Printer, Home, Warehouse } from 'lucide-react';
 import UltimosVales from './UltimosVales';
 
 const VendedorHeader = ({
@@ -17,11 +17,23 @@ const VendedorHeader = ({
   // Nuevas props para navegación y búsqueda
   onGoHome,
   currentLevel,
-  searchComponent
+  searchComponent,
+  // Props para bloqueo de pantalla
+  onLockScreen,
+  hasPin = false,
+  isLocked = false
 }) => {
   const { logout } = useAuth();
   const [showCartPanel, setShowCartPanel] = useState(false);
   const [showUltimosVales, setShowUltimosVales] = useState(false);
+
+  // Cerrar modales del header cuando se bloquea la pantalla
+  useEffect(() => {
+    if (isLocked) {
+      setShowCartPanel(false);
+      setShowUltimosVales(false);
+    }
+  }, [isLocked]);
 
   const handleLogout = async () => {
     await logout();
@@ -111,6 +123,18 @@ const VendedorHeader = ({
 
             {/* Derecha: Controles */}
             <div className="flex items-center gap-1 sm:gap-3">
+              {/* Botón Ir a Bodega (bloquear pantalla) */}
+              {hasPin && onLockScreen && (
+                <button
+                  onClick={onLockScreen}
+                  className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium transition-colors shadow-md flex-shrink-0"
+                  title="Bloquear pantalla e ir a bodega"
+                >
+                  <Warehouse className="w-5 h-5 sm:w-6 sm:h-6" />
+                  <span className="hidden sm:inline text-sm">Ir a Bodega</span>
+                </button>
+              )}
+
               {/* Botón Reimprimir Últimos Vales */}
               <button
                 onClick={() => setShowUltimosVales(true)}

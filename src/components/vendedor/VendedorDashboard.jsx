@@ -3,8 +3,11 @@ import VendedorHeader from './VendedorHeader';
 import ProductModal from './ProductModal';
 import ValeModal from './ValeModal';
 import ClienteModal from './ClienteModal';
+import LockScreen from './LockScreen';
 import ApiService from '../../services/api';
 import printService from '../../services/printService';
+import useLockScreen from '../../hooks/useLockScreen';
+import { useAuth } from '../../hooks/useAuth';
 import { Loader2, UserCheck, ChevronRight, Search, X, Edit, UserPlus } from 'lucide-react';
 
 // Función debounce para optimizar búsquedas
@@ -314,6 +317,12 @@ const handleSearch = async (query) => {
 };
 
 const VendedorDashboard = () => {
+  // Hook para bloqueo de pantalla (30s inactividad)
+  const { isLocked, hasPin, lockScreen, unlockScreen } = useLockScreen(true);
+
+  // Hook de autenticación para obtener datos del vendedor
+  const { user } = useAuth();
+
   // Estado para el modal de cliente y datos del cliente
   const [showClienteModal, setShowClienteModal] = useState(true);
   const [clienteActual, setClienteActual] = useState(null);
@@ -357,6 +366,15 @@ const VendedorDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [breadcrumb, setBreadcrumb] = useState([]);
   const [currentVariantType, setCurrentVariantType] = useState('opción');
+
+  // Cerrar todos los modales cuando se bloquea la pantalla
+  useEffect(() => {
+    if (isLocked) {
+      setShowClienteModal(false);
+      setShowProductModal(false);
+      setShowValeModal(false);
+    }
+  }, [isLocked]);
 
   // Manejar confirmación de cliente
   const handleClienteConfirm = (cliente) => {
@@ -501,7 +519,8 @@ const VendedorDashboard = () => {
 const handleProductSelectFromSearch = async (product) => {
   try {
     // SIEMPRE cargar el producto completo para obtener todas las modalidades
-    const response = await ApiService.getProduct(product.id_producto);
+    // Pasar RUT del cliente para obtener precios especiales si aplica
+    const response = await ApiService.getProduct(product.id_producto, clienteActual?.rut);
     
     if (response.success && response.data) {
       const prodData = response.data;
@@ -1025,7 +1044,8 @@ const handleProductSelectFromSearch = async (product) => {
     if (productWithVariant && specificVariant) {
       setSelectedOption(variantName);
       try {
-        const response = await ApiService.getProduct(productWithVariant.id_producto);
+        // Pasar RUT del cliente para obtener precios especiales si aplica
+        const response = await ApiService.getProduct(productWithVariant.id_producto, clienteActual?.rut);
 
         if (response.success && response.data) {
           const prodData = response.data;
@@ -1118,6 +1138,14 @@ const handleProductSelectFromSearch = async (product) => {
       m => m.nombre === modalidad || m.id_modalidad === modalidad
     );
 
+    // ✅ Detectar si es precio especial
+    const tienePrecioEspecial = modalidadCompleta?.precio_especial !== undefined;
+    const precioOriginal = tienePrecioEspecial
+      ? (documentType === 'factura'
+          ? parseFloat(modalidadCompleta.precios?.factura) || parseFloat(modalidadCompleta.precios?.neto)
+          : parseFloat(modalidadCompleta.precios?.neto))
+      : price;
+
     const item = {
       id: `${product.selectedVariant?.id_variante_producto}-${modalidad}-${Date.now()}`,
       product: {
@@ -1141,6 +1169,13 @@ const handleProductSelectFromSearch = async (product) => {
       total: quantity * price,
       id_variante_producto: product.selectedVariant?.id_variante_producto,
       id_modalidad: modalidadCompleta?.id_modalidad,
+      // ✅ Info de precio especial
+      precioEspecial: tienePrecioEspecial ? {
+        tipoDescuento: modalidadCompleta.tipo_descuento,
+        valorDescuento: modalidadCompleta.valor_descuento,
+        precioOriginal: precioOriginal,
+        origenPrecio: modalidadCompleta.origen_precio_especial
+      } : null,
     };
 
     setCart([...cart, item]);
@@ -1295,6 +1330,16 @@ const handleProductSelectFromSearch = async (product) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Pantalla de Bloqueo */}
+      <LockScreen
+        isLocked={isLocked}
+        onUnlock={unlockScreen}
+        hasPin={hasPin}
+        cart={cart}
+        vendedorNombre={user?.nombre_completo || user?.username || 'Vendedor'}
+        documentType={documentType}
+      />
+
       {/* Modal de Cliente */}
       <ClienteModal
         isOpen={showClienteModal}
@@ -1317,6 +1362,9 @@ const handleProductSelectFromSearch = async (product) => {
         onGoHome={goToCategories}
         currentLevel={currentLevel}
         searchComponent={<SearchBox onProductSelect={handleProductSelectFromSearch} />}
+        onLockScreen={lockScreen}
+        hasPin={hasPin}
+        isLocked={isLocked}
       />
 
       {/* Breadcrumb de navegación */}
@@ -1492,6 +1540,7 @@ const handleProductSelectFromSearch = async (product) => {
           preselectedOption={selectedProduct.preselectedOption}
           onAdd={addToCart}
           onClose={() => setShowProductModal(false)}
+          clienteActual={clienteActual}
         />
       )}
 

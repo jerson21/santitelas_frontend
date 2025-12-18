@@ -19,7 +19,8 @@ import {
   Phone,
   Shield,
   Calendar,
-  User
+  User,
+  Lock
 } from 'lucide-react';
 import ApiService from '../../services/api';
 
@@ -58,7 +59,8 @@ const UsuariosAdmin = () => {
     confirmarPassword: '',
     id_rol: '', // Inicializar vacío hasta cargar roles
     telefono: '',
-    activo: true
+    activo: true,
+    pin_bloqueo: '' // PIN de 4 digitos para vendedores
   });
 
   // Cargar roles desde la BD
@@ -156,6 +158,12 @@ const UsuariosAdmin = () => {
   const getRoleId = (nombreRol) => {
     const rol = roles.find(r => r.nombre.toLowerCase() === nombreRol.toLowerCase());
     return rol ? rol.id_rol : null;
+  };
+
+  // Verificar si el rol seleccionado es vendedor
+  const isVendedorRole = () => {
+    const rol = roles.find(r => r.id_rol === formData.id_rol);
+    return rol && rol.nombre.toLowerCase() === 'vendedor';
   };
 
   // Filtrar usuarios solo por rol (búsqueda y estado se hacen en servidor)
@@ -331,9 +339,9 @@ const UsuariosAdmin = () => {
   // Actualizar usuario
   const handleUpdate = async () => {
     if (!validateForm()) return;
-    
+
     try {
-      const { confirmarPassword, nombre, usuario, ...restData } = formData;
+      const { confirmarPassword, nombre, usuario, pin_bloqueo, ...restData } = formData;
       const userData = {
         nombre_completo: nombre,
         email: restData.email,
@@ -341,25 +349,37 @@ const UsuariosAdmin = () => {
         id_rol: restData.id_rol,
         activo: restData.activo
       };
-      
+
       // Solo incluir password si se cambió
       if (restData.password) {
         userData.password = restData.password;
       }
-      
-      const response = await ApiService.updateUsuario 
+
+      const response = await ApiService.updateUsuario
         ? await ApiService.updateUsuario(selectedUser.id_usuario, userData)
         : await ApiService.request(`/admin/usuarios/${selectedUser.id_usuario}`, {
             method: 'PUT',
             body: JSON.stringify(userData)
           });
-      
+
       if (response.success) {
+        // Si se proporciono PIN, guardarlo por separado
+        if (pin_bloqueo && pin_bloqueo.length === 4) {
+          try {
+            const pinResponse = await ApiService.configurarPinUsuario(selectedUser.id_usuario, pin_bloqueo);
+            if (!pinResponse.success) {
+              console.warn('Usuario actualizado pero error al guardar PIN:', pinResponse.message);
+            }
+          } catch (pinError) {
+            console.warn('Usuario actualizado pero error al guardar PIN:', pinError);
+          }
+        }
+
         setSuccessMessage('Usuario actualizado exitosamente');
         setShowEditModal(false);
         resetForm();
         loadUsuarios();
-        
+
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {
         setErrors({ general: response.message || 'Error al actualizar usuario' });
@@ -403,7 +423,8 @@ const UsuariosAdmin = () => {
       confirmarPassword: '',
       id_rol: rolId,
       telefono: usuario.telefono || '',
-      activo: usuario.activo !== undefined ? usuario.activo : true
+      activo: usuario.activo !== undefined ? usuario.activo : true,
+      pin_bloqueo: '' // Siempre vacio al editar (no mostramos PIN actual por seguridad)
     });
     setErrors({});
     setShowEditModal(true);
@@ -419,7 +440,8 @@ const UsuariosAdmin = () => {
       confirmarPassword: '',
       id_rol: roles.length > 0 ? roles[0].id_rol : '',
       telefono: '',
-      activo: true
+      activo: true,
+      pin_bloqueo: ''
     });
     setErrors({});
     setSelectedUser(null);
@@ -900,7 +922,42 @@ const UsuariosAdmin = () => {
                   <p className="mt-1 text-sm text-red-600">{errors.id_rol}</p>
                 )}
               </div>
-              
+
+              {/* Campo PIN - Solo para vendedores */}
+              {isVendedorRole() && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <label className="flex items-center text-sm font-medium text-orange-800 mb-2">
+                    <Lock className="w-4 h-4 mr-2" />
+                    PIN de Bloqueo (4 digitos)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={4}
+                    value={formData.pin_bloqueo}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      setFormData({ ...formData, pin_bloqueo: value });
+                    }}
+                    placeholder="Ej: 1234"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 text-center text-2xl tracking-widest font-mono ${
+                      formData.pin_bloqueo.length > 0 && formData.pin_bloqueo.length < 4
+                        ? 'border-orange-500'
+                        : 'border-gray-300'
+                    }`}
+                  />
+                  <p className="mt-2 text-xs text-orange-700">
+                    {showEditModal
+                      ? 'Dejar vacio para mantener el PIN actual. Ingresar 4 digitos para cambiar.'
+                      : 'PIN para desbloquear pantalla (obligatorio para vendedores)'}
+                  </p>
+                  {formData.pin_bloqueo.length > 0 && formData.pin_bloqueo.length < 4 && (
+                    <p className="mt-1 text-sm text-orange-600">El PIN debe tener 4 digitos</p>
+                  )}
+                </div>
+              )}
+
               {showEditModal && (
                 <div>
                   <label className="flex items-center">

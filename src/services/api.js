@@ -945,9 +945,18 @@ async actualizarPreciosMasivo(actualizacionData) {
     }
   }
 
-  async getProduct(productId) {
+  /**
+   * Obtener producto con sus variantes y modalidades
+   * @param {number} productId - ID del producto
+   * @param {string} clienteRut - RUT del cliente para obtener precios especiales (opcional)
+   */
+  async getProduct(productId, clienteRut = null) {
     try {
-      const response = await this.request(`/vendedor/producto/${productId}`);
+      let url = `/vendedor/producto/${productId}`;
+      if (clienteRut) {
+        url += `?cliente_rut=${encodeURIComponent(clienteRut)}`;
+      }
+      const response = await this.request(url);
       return response;
     } catch (error) {
       console.error('❌ Error obteniendo producto individual:', error);
@@ -1203,6 +1212,58 @@ async createPedidoRapido(pedidoData) {
         success: false,
         message: error.message || 'Error al agregar productos al vale'
       };
+    }
+  }
+
+  // ===========================
+  // VENDEDOR - SISTEMA DE BLOQUEO (PIN)
+  // ===========================
+
+  /**
+   * Verificar si el usuario tiene PIN configurado
+   */
+  async verificarTienePin() {
+    try {
+      const response = await this.request('/vendedor/tiene-pin');
+      return response;
+    } catch (error) {
+      console.error('Error verificando PIN:', error);
+      return { success: false, data: { tiene_pin: false } };
+    }
+  }
+
+  /**
+   * Validar PIN para desbloquear pantalla
+   * @param {string} pin - PIN de 4 digitos
+   */
+  async validarPin(pin) {
+    try {
+      const response = await this.request('/vendedor/validar-pin', {
+        method: 'POST',
+        body: JSON.stringify({ pin })
+      });
+      return response;
+    } catch (error) {
+      console.error('Error validando PIN:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Configurar PIN de un usuario (solo admin)
+   * @param {number} userId - ID del usuario
+   * @param {string} pin - PIN de 4 digitos (null para eliminar)
+   */
+  async configurarPinUsuario(userId, pin) {
+    try {
+      const response = await this.request(`/admin/usuarios/${userId}/pin`, {
+        method: 'PUT',
+        body: JSON.stringify({ pin })
+      });
+      return response;
+    } catch (error) {
+      console.error('Error configurando PIN:', error);
+      return { success: false, message: error.message };
     }
   }
 
@@ -2000,6 +2061,137 @@ async procesarVale(numeroVale, datosVenta) {
 
   isAuthenticated() {
     return !!this.getToken();
+  }
+
+  // ===========================
+  // PRECIOS ESPECIALES - LISTAS Y DESCUENTOS
+  // ===========================
+
+  /**
+   * Obtener todas las listas de precios
+   */
+  async getListasPrecios(params = {}) {
+    const queryParams = new URLSearchParams(params).toString();
+    return await this.request(`/admin/precios/listas${queryParams ? `?${queryParams}` : ''}`);
+  }
+
+  /**
+   * Obtener detalle de una lista con sus precios
+   */
+  async getListaPreciosDetalle(id) {
+    return await this.request(`/admin/precios/listas/${id}`);
+  }
+
+  /**
+   * Crear nueva lista de precios
+   */
+  async createListaPrecios(data) {
+    return await this.request('/admin/precios/listas', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  /**
+   * Actualizar lista de precios
+   */
+  async updateListaPrecios(id, data) {
+    return await this.request(`/admin/precios/listas/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  /**
+   * Desactivar lista de precios
+   */
+  async deleteListaPrecios(id) {
+    return await this.request(`/admin/precios/listas/${id}`, {
+      method: 'DELETE'
+    });
+  }
+
+  /**
+   * Agregar precio a una lista
+   */
+  async addPrecioLista(idLista, data) {
+    return await this.request(`/admin/precios/listas/${idLista}/precios`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  /**
+   * Actualizar precio en lista
+   */
+  async updatePrecioLista(idLista, idPrecio, data) {
+    return await this.request(`/admin/precios/listas/${idLista}/precios/${idPrecio}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  /**
+   * Eliminar precio de lista
+   */
+  async deletePrecioLista(idLista, idPrecio) {
+    return await this.request(`/admin/precios/listas/${idLista}/precios/${idPrecio}`, {
+      method: 'DELETE'
+    });
+  }
+
+  /**
+   * Obtener precios especiales de un cliente
+   */
+  async getPreciosEspecialesCliente(idCliente) {
+    return await this.request(`/admin/precios/clientes/${idCliente}`);
+  }
+
+  /**
+   * Agregar precio especial a un cliente
+   */
+  async addPrecioEspecialCliente(idCliente, data) {
+    return await this.request(`/admin/precios/clientes/${idCliente}`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  /**
+   * Actualizar precio especial de un cliente
+   */
+  async updatePrecioEspecialCliente(idCliente, idPrecio, data) {
+    return await this.request(`/admin/precios/clientes/${idCliente}/${idPrecio}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  /**
+   * Eliminar precio especial de un cliente
+   */
+  async deletePrecioEspecialCliente(idCliente, idPrecio) {
+    return await this.request(`/admin/precios/clientes/${idCliente}/${idPrecio}`, {
+      method: 'DELETE'
+    });
+  }
+
+  /**
+   * Asignar o quitar lista de precios a un cliente
+   */
+  async asignarListaACliente(idCliente, idLista) {
+    return await this.request(`/admin/precios/clientes/${idCliente}/asignar-lista`, {
+      method: 'PUT',
+      body: JSON.stringify({ id_lista_precios: idLista })
+    });
+  }
+
+  /**
+   * Buscar productos/variantes para agregar precios
+   */
+  async buscarProductosPrecios(query, limit = 20) {
+    const params = new URLSearchParams({ q: query, limit }).toString();
+    return await this.request(`/admin/precios/buscar-productos?${params}`);
   }
 
   // ===========================

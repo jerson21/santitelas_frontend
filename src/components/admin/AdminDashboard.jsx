@@ -16,7 +16,8 @@ import {
   Clock,
   AlertCircle,
   User,
-  Cloud
+  Cloud,
+  Tag
 } from 'lucide-react';
 import ApiService from '../../services/api';
 import UsuariosAdmin from './UsuariosAdmin';
@@ -28,6 +29,7 @@ import MovimientosStock from './MovimientosStock';
 import MorosidadesAdmin from './MorosidadesAdmin';
 import ClientesAdmin from './ClientesAdmin';
 import RelbaseSyncAdmin from './RelbaseSyncAdmin';
+import PreciosEspecialesAdmin from './PreciosEspecialesAdmin';
 import TransferValidationNotifications from './TransferValidationNotifications';
 
 
@@ -43,7 +45,7 @@ const AdminDashboard = () => {
   // Leer la vista inicial desde el hash de la URL
   const getInitialView = () => {
     const hash = window.location.hash.replace('#', '');
-    const validViews = ['dashboard', 'usuarios', 'productos', 'categorias', 'bodegas', 'stock', 'movimientos', 'morosidades', 'clientes', 'relbase'];
+    const validViews = ['dashboard', 'usuarios', 'productos', 'categorias', 'bodegas', 'stock', 'movimientos', 'morosidades', 'clientes', 'relbase', 'precios-especiales'];
     return validViews.includes(hash) ? hash : 'dashboard';
   };
 
@@ -61,7 +63,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      const validViews = ['dashboard', 'usuarios', 'productos', 'categorias', 'bodegas', 'stock', 'movimientos', 'morosidades', 'clientes', 'relbase'];
+      const validViews = ['dashboard', 'usuarios', 'productos', 'categorias', 'bodegas', 'stock', 'movimientos', 'morosidades', 'clientes', 'relbase', 'precios-especiales'];
       if (validViews.includes(hash) && hash !== currentView) {
         setCurrentView(hash);
       }
@@ -170,6 +172,17 @@ const AdminDashboard = () => {
       actions: ['view'],
       comingSoon: false,
       component: RelbaseSyncAdmin
+    },
+    {
+      id: 'precios-especiales',
+      title: 'Precios Especiales',
+      description: 'Gestionar listas de precios y descuentos por cliente',
+      icon: Tag,
+      color: 'bg-rose-600 hover:bg-rose-700',
+      endpoint: '/admin/precios',
+      actions: ['view', 'create', 'edit'],
+      comingSoon: false,
+      component: PreciosEspecialesAdmin
     },
     {
       id: 'reportes',
