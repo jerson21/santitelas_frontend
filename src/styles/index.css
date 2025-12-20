@@ -5,19 +5,36 @@
 @layer base {
   * {
     touch-action: manipulation; /* Elimina delay 300ms en táctil */
+    -ms-touch-action: manipulation; /* IE11/Edge Legacy */
+  }
+
+  html, body {
+    overflow: auto;
+    overscroll-behavior: contain; /* Evita scroll bounce en Windows */
+    -ms-overflow-style: -ms-autohiding-scrollbar; /* Scrollbar Windows */
   }
 
   body {
     @apply font-sans antialiased;
-    -webkit-overflow-scrolling: touch; /* Scroll suave en táctil */
+    -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
     user-select: none; /* Evita selección al deslizar */
     -webkit-user-select: none;
+    -ms-user-select: none;
   }
 
   /* Permitir selección en campos de texto */
   input, textarea, [contenteditable], .selectable {
     user-select: text;
     -webkit-user-select: text;
+  }
+
+  /* Contenedores scrollables táctiles - usar en divs con scroll */
+  .touch-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scroll-behavior: smooth;
   }
 }
 

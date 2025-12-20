@@ -89,7 +89,7 @@ function App() {
   };
 
   return (
-    <div className="App">
+    <div className="App min-h-screen overflow-auto touch-scroll">
       {renderDashboard()}
     </div>
   );

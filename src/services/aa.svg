@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="260" viewBox="0 0 900 260">
+  <defs>
+    <style>
+      .gold { fill: #D4AF37; }
+      .silver { fill: #C9CCD1; }
+      .black { fill: #111111; }
+      .text { font-family: Arial, Helvetica, sans-serif; font-weight: 700; }
+    </style>
+  </defs>
+
+  <!-- TS -->
+  <!-- T superior dorada -->
+  <rect x="40" y="30" rx="12" ry="12" width="120" height="40" class="gold"/>
+  <rect x="85" y="30" width="30" height="120" class="gold"/>
+
+  <!-- Continuación inferior de la T (PLATEADO, CLAVE) -->
+  <rect x="85" y="150" width="30" height="30" class="silver"/>
+
+  <!-- S negra -->
+  <path d="
+    M 40 90
+    C 40 60, 160 60, 160 90
+    C 160 115, 40 115, 40 145
+    C 40 175, 160 175, 160 145
+    " fill="none" stroke="#111111" stroke-width="28" stroke-linecap="round"/>
+
+  <!-- Texto -->
+  <text x="210" y="95" font-size="56" class="text silver">TELAS</text>
+  <text x="210" y="155" font-size="64" class="text gold">SANTI</text>
+</svg>
